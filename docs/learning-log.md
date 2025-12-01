@@ -42,6 +42,34 @@ Track concepts learned, questions to explore, and patterns implemented.
 - **Gotchas**: Files are automatically closed when exiting the `with` block
 - **Resources**: Python context manager docs
 
+### 2025-12-01 — Conventional Commits
+- **What**: A standardized commit message format: `type(scope): description` (e.g., `feat(epub): add metadata parsing`)
+- **Why**: Makes commit history readable, enables automated changelogs, and clearly communicates intent
+- **Example**: `docs: add EPUB parsing feature specification` vs "updated files"
+- **Gotchas**: Keep the first line under 50 chars; use imperative mood ("add" not "added")
+- **Resources**: https://www.conventionalcommits.org/
+
+### 2025-12-01 — Logical Commit Splitting
+- **What**: Breaking changes into multiple focused commits rather than one large commit
+- **Why**: Easier code review, cleaner history, ability to revert specific changes without affecting others
+- **Example**: Today split command changes into (1) reorganization/renames and (2) enhancements - each commit tells a clear story
+- **Gotchas**: Don't split too granularly - each commit should be a complete, logical unit of work
+- **Resources**: Git best practices
+
+### 2025-12-01 — Feature Specification Structure
+- **What**: Structured documentation format: overview, user stories, acceptance criteria, edge cases, out-of-scope, tasks
+- **Why**: Ensures everyone understands what "done" means, prevents scope creep, identifies edge cases early
+- **Example**: Created docs/specs/epub-parsing.md with 187 lines covering all aspects of EPUB parsing
+- **Gotchas**: "Out of scope" section is as important as "in scope" - prevents feature creep
+- **Resources**: User story best practices
+
+### 2025-12-01 — GitHub CLI Workflow
+- **What**: Using `gh` command-line tool for GitHub operations instead of web UI
+- **Why**: Faster workflow, scriptable, stays in terminal context
+- **Example**: `gh issue create --title "..." --body "..."` to create issues programmatically
+- **Gotchas**: Need to authenticate first with `gh auth login`; labels must exist in repo before using them
+- **Resources**: https://cli.github.com/manual/
+
 <!-- Template:
 ### [Date] — [Concept Name]
 - **What**: Brief explanation of the concept
@@ -77,12 +105,31 @@ Track patterns as you use them in the project:
 - [ ] Repository pattern (for data access)
 - [x] Context managers for resource handling (2025-12-01: nested with for ZIP file reading)
 - [ ] Async/await for I/O
+- [x] Conventional commit messages (2025-12-01: all 7 commits followed the pattern)
+- [x] Feature specification documentation (2025-12-01: comprehensive EPUB parsing spec)
 
 ---
 
 ## Code I'm Proud Of
 
-<!-- Reference good code you wrote and why it's good -->
+### 2025-12-01 — EPUB Parsing Feature Spec
+- **What**: Created comprehensive 187-line feature specification (docs/specs/epub-parsing.md)
+- **Why it's good**:
+  - Clear acceptance criteria that define "done"
+  - Edge cases identified before implementation
+  - Explicit "out of scope" prevents feature creep
+  - Tasks broken down with size estimates
+  - Success metrics defined
+- **Reference**: docs/specs/epub-parsing.md
+
+### 2025-12-01 — Git Command Organization
+- **What**: Created 9 comprehensive git workflow commands and 4 GitHub integration commands
+- **Why it's good**:
+  - Teaching-oriented (explain when/why, not just how)
+  - Safety warnings on destructive operations
+  - Real examples from the project
+  - Structured consistently for easy navigation
+- **Reference**: .claude/commands/
 
 ---
 
