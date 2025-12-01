@@ -69,3 +69,6 @@ Format as markdown that can be pasted into `docs/sessions/YYYY-MM-DD.md`:
 
 This summary is crucial for session continuity since context doesn't persist.
 Be thorough—future me will thank present me.
+
+## Action Steps
+- After review, update the session notes and learning log if applicable.
