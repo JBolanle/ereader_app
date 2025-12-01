@@ -96,9 +96,10 @@ Before starting, ensure you have:
 
 - [ ] Understand async/await deeply (not just copy patterns)
 - [ ] Be able to write PyQt/UI code from scratch
-- [ ] Understand EPUB format well enough to explain it
+- [x] Understand EPUB format well enough to explain it (structure understood)
 - [ ] Learn proper Python packaging for distribution
 - [ ] Master pytest and testing patterns
+- [x] Professional Git/GitHub workflow (branching, PRs, code review, merging)
 
 ## Off-Limits for Delegation
 
@@ -120,7 +121,10 @@ These things I must implement myself (for learning):
   - [ ] Extract metadata from content.opf
   - [ ] Extract spine (reading order)
   - [ ] Read actual chapter content
-- [ ] Core architecture setup
+- [x] Core architecture setup (COMPLETED - Issue #1)
+  - [x] Exception module created
+  - [x] Test structure established
+  - [x] Architecture documented
 - [ ] EPUB rendering MVP
 
 ## Decisions Log
@@ -131,6 +135,8 @@ Record architectural decisions here as they're made:
 |------|----------|-----------|----------|
 | 2025-12-01 | XML Parser: ElementTree | Standard library, sufficient for EPUBs, better for learning fundamentals | - |
 | 2025-12-01 | Learning approach: Parse before UI | Understand EPUB format deeply before building interface | - |
+| 2025-12-01 | Exception organization: Centralized | Single exceptions.py file prevents circular imports, follows Python patterns | docs/architecture/project-structure.md |
+| 2025-12-01 | Test structure: Mirror source | tests/test_models/ mirrors src/ereader/models/ for discoverability | docs/architecture/project-structure.md |
 | TBD | UI framework | TBD | TBD |
 
 ## File Structure
