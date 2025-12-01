@@ -19,8 +19,7 @@ class EReaderError(Exception):
     This allows users to catch any application-specific error with a single
     except clause.
 
-    Attributes:
-        message: Human-readable error message describing the issue.
+    The error message can be accessed via str(exception) or exception.args[0].
     """
 
     pass
