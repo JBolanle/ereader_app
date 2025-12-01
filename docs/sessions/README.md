@@ -21,3 +21,9 @@ Since Claude Code doesn't retain memory between sessions, these logs help:
 - Track decisions made
 - Know what to pick up next
 - Maintain project momentum
+
+
+## Other Notes
+- Always use context7 when I need code generation, setup or configuration steps, or
+library/API documentation. This means you should automatically use the Context7 MCP
+tools to resolve library id and get library docs without me having to explicitly ask.

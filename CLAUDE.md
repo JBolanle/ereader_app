@@ -99,8 +99,16 @@ These things I must implement myself (for learning):
 
 ## Current Sprint
 
-- [ ] Project initialization
-- [ ] UI framework decision
+- [x] Project initialization
+- [ ] UI framework decision (deferred - learning parsing first)
+- [x] Started EPUB parsing learning
+  - [x] Understand EPUB structure (ZIP-based format)
+  - [x] ZIP file handling with Python's zipfile module
+  - [x] Basic XML parsing with ElementTree
+  - [x] Navigate from container.xml to content.opf
+  - [ ] Extract metadata from content.opf
+  - [ ] Extract spine (reading order)
+  - [ ] Read actual chapter content
 - [ ] Core architecture setup
 - [ ] EPUB rendering MVP
 
@@ -110,6 +118,8 @@ Record architectural decisions here as they're made:
 
 | Date | Decision | Reasoning | Doc Link |
 |------|----------|-----------|----------|
+| 2025-12-01 | XML Parser: ElementTree | Standard library, sufficient for EPUBs, better for learning fundamentals | - |
+| 2025-12-01 | Learning approach: Parse before UI | Understand EPUB format deeply before building interface | - |
 | TBD | UI framework | TBD | TBD |
 
 ## File Structure
@@ -140,6 +150,8 @@ ereader-app/
 
 ## Quick Reference: Commands
 
+### Development Workflow
+
 | Situation | Command |
 |-----------|---------|
 | What should I build next? | `/pm` |
@@ -151,3 +163,23 @@ ereader-app/
 | Is my code good? | `/reviewer` |
 | Test my understanding | `/quiz` |
 | End of session summary | `/wrapup` |
+| Run a full feature cycle | `/sprint` |
+
+### Git Operations
+
+| Situation | Command |
+|-----------|---------|
+| Start new work | `/branch` |
+| Where am I? What's my state? | `/status` |
+| Save my work with good message | `/commit` |
+| What changed? | `/diff` |
+| Explore history | `/log` |
+| Open a pull request | `/pr` |
+| Sync with remote / handle merges | `/sync` |
+| Temporarily save work | `/stash` |
+| Fix a git mistake | `/undo` |
+
+## Other Notes
+- IMPORTANT: Always use context7 when I need code generation, setup or configuration steps, or
+library/API documentation. This means you should automatically use the Context7 MCP
+tools to resolve library id and get library docs without me having to explicitly ask.

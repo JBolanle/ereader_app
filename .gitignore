@@ -78,6 +78,7 @@ uv.lock
 *.pdf
 *.mobi
 !tests/data/*
+playground/
 
 # Test data (but keep the directory)
 tests/data/*
