@@ -1,6 +1,6 @@
 # PR (Pull Request)
 
-Help me open a well-documented pull request.
+Help me open a well-documented pull request using GitHub CLI.
 
 ## Pre-PR Checklist
 
@@ -18,6 +18,9 @@ uv run pytest
 
 # Does linting pass?
 uv run ruff check src/
+
+# Push the branch if not already pushed
+git push -u origin $(git branch --show-current)
 ```
 
 If any checks fail, help me fix them first.
@@ -31,8 +34,8 @@ git log main..HEAD --oneline
 # What files changed?
 git diff main --stat
 
-# What's the actual diff? (for summary)
-git diff main
+# Check for related issues
+gh issue list
 ```
 
 ## Find Related Items
@@ -41,11 +44,41 @@ git diff main
 - Are there related GitHub issues to close?
 - Is there a review in `docs/reviews/` to reference?
 
-## PR Title
+## Create the PR
 
-Format: `type(scope): description`
+### Interactive Mode (Recommended for Learning)
 
-Same as commit messages but can be slightly more descriptive.
+```bash
+gh pr create
+```
+
+This will prompt for:
+- Title
+- Body
+- Base branch (usually main)
+
+### With Flags
+
+```bash
+gh pr create \
+  --title "feat(scope): description" \
+  --body "PR description here" \
+  --assignee @me
+```
+
+### Linking to Issues
+
+```bash
+# Close an issue when PR merges
+gh pr create --title "feat: add bookmarks" --body "Closes #12"
+
+# Or link without closing
+gh pr create --title "feat: add bookmarks" --body "Related to #12"
+```
+
+## PR Title Format
+
+Same as commit messages: `type(scope): description`
 
 Examples:
 - `feat(epub): Add EPUB file parsing and chapter navigation`
@@ -53,46 +86,80 @@ Examples:
 
 ## PR Description Template
 
+When prompted for body, use this structure:
+
 ```markdown
 ## Summary
 [2-3 sentences: what does this PR do and why?]
 
 ## Changes
 - [Bullet list of main changes]
-- [Keep it high-level, not every file]
 
 ## Related Issues
 Closes #[issue number]
 
-## Spec
-[Link to docs/specs/[feature].md if applicable]
-
 ## Testing
 - [ ] Unit tests added/updated
 - [ ] Manual testing performed
-- [ ] All tests passing
-
-## Screenshots
-[If UI changes, add before/after screenshots]
 
 ## Notes for Reviewers
-[Anything specific to look at? Concerns? Questions?]
-```
-
-## Create the PR
-
-```bash
-gh pr create --title "[title]" --body "[body]"
-```
-
-Or for interactive:
-```bash
-gh pr create
+[Anything specific to look at?]
 ```
 
 ## After Creating
 
-Provide the PR link and suggest:
-- Who should review (if team project)
-- Any follow-up tasks
-- Update CLAUDE.md's Current Sprint if needed
+```bash
+# View your PR in browser
+gh pr view --web
+
+# Check PR status
+gh pr status
+
+# List checks/CI status
+gh pr checks
+```
+
+## Managing PRs
+
+```bash
+# List your open PRs
+gh pr list --author @me
+
+# View a specific PR
+gh pr view [number]
+
+# Add reviewers
+gh pr edit --add-reviewer username
+
+# Mark as ready for review (if draft)
+gh pr ready
+
+# Merge when approved
+gh pr merge
+```
+
+## Updating a PR
+
+If you need to make changes after opening:
+
+```bash
+# Make your changes, commit
+git add .
+git commit -m "fix: address review feedback"
+
+# Push updates (PR updates automatically)
+git push
+```
+
+## Draft PRs
+
+If not ready for review yet:
+
+```bash
+gh pr create --draft
+```
+
+Convert to ready later:
+```bash
+gh pr ready
+```

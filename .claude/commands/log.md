@@ -1,8 +1,8 @@
 # Log
 
-Help me explore the git history.
+Help me explore git and GitHub history.
 
-## Quick Views
+## Quick Local Views
 
 ### Recent commits (simple)
 ```bash
@@ -17,6 +17,41 @@ git log --oneline --graph --all -20
 ### Detailed recent history
 ```bash
 git log -5
+```
+
+---
+
+## GitHub History (via gh)
+
+### View repo activity
+```bash
+gh repo view --web  # Opens in browser
+```
+
+### View PR history
+```bash
+# List recent merged PRs
+gh pr list --state merged --limit 10
+
+# View a specific PR's details
+gh pr view [number]
+
+# See PR diff
+gh pr diff [number]
+```
+
+### View issue history
+```bash
+# List recent closed issues
+gh issue list --state closed --limit 10
+
+# View issue details and comments
+gh issue view [number]
+```
+
+### View recent releases
+```bash
+gh release list
 ```
 
 ---
@@ -41,6 +76,9 @@ git log -p -- [file-path]
 ### Who changed each line of a file? (blame)
 ```bash
 git blame [file-path]
+
+# Or view on GitHub
+gh browse [file-path]
 ```
 
 ### What commits are on this branch but not main?
@@ -79,6 +117,18 @@ git log --since="2024-01-01" --until="2024-01-31" --oneline
 
 ---
 
+## Search GitHub
+
+```bash
+# Search issues and PRs
+gh search issues "search term" --repo owner/repo
+
+# Search code in repo
+gh search code "function_name" --repo owner/repo
+```
+
+---
+
 ## Pretty Formats
 
 ### Compact with date and author
@@ -111,10 +161,11 @@ Commits with two parents show where branches were merged.
 
 ## What Are You Looking For?
 
-Tell me what you want to find in the history:
+Tell me what you want to find:
 - A specific change?
 - When something was introduced?
 - What happened on a branch?
 - Who made a change?
+- PR or issue history?
 
 I'll help you find it.

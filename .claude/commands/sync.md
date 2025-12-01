@@ -1,6 +1,6 @@
 # Sync
 
-Help me sync my local repository with the remote.
+Help me sync my local repository with GitHub.
 
 ## Assess the Situation First
 
@@ -16,21 +16,29 @@ git fetch origin
 
 # How does my branch compare to remote?
 git status -sb
+
+# Check GitHub repo status
+gh repo sync --dry-run 2>/dev/null || echo "Not a fork or already synced"
 ```
 
 ## Common Scenarios
 
-### Scenario 1: I just want to update main
+### Scenario 1: Update main with latest from GitHub
 
 ```bash
 git checkout main
 git pull origin main
 ```
 
+Or using gh for a fork:
+```bash
+gh repo sync
+```
+
 Then if I was on a feature branch:
 ```bash
 git checkout [my-branch]
-git merge main  # or rebase, explain the difference
+git merge main  # or rebase
 ```
 
 ### Scenario 2: My feature branch is behind main
@@ -48,7 +56,7 @@ Options:
 
 Explain the tradeoffs and ask which I prefer.
 
-### Scenario 3: Push my commits to remote
+### Scenario 3: Push my commits to GitHub
 
 ```bash
 git push origin [branch-name]
@@ -66,6 +74,16 @@ git pull origin [branch-name]
 ```
 
 If there are conflicts, help me through them.
+
+### Scenario 5: Sync a Forked Repository
+
+```bash
+# Sync fork with upstream
+gh repo sync
+
+# Or specify upstream
+gh repo sync --source owner/repo
+```
 
 ## Handling Merge Conflicts
 
@@ -113,6 +131,16 @@ git reset --soft HEAD~1  # Undo commit, keep changes
 git checkout -b feature/[name]  # Move to new branch
 git checkout main
 git reset --hard origin/main  # Reset main to remote
+```
+
+## Check PR Status After Syncing
+
+```bash
+# See if your PR needs attention
+gh pr status
+
+# Check CI status on your PR
+gh pr checks
 ```
 
 ## Explain What Happened

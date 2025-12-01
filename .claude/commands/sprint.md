@@ -72,7 +72,7 @@ This command moves fast. If you're learning, consider instead:
 1. `/pm` to create the spec
 2. `/mentor` to understand what you'll build
 3. Implement yourself with `/hint` when stuck
-4. `/reviewer` to get feedback
+4. `/code-review` to get feedback
 5. Fix issues yourself with `/mentor` help
 
 The sprint command is for when you're confident and want to delegate.

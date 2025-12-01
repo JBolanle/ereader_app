@@ -53,6 +53,12 @@ type/short-description
 - Keep it short but descriptive
 - Include issue number if applicable: `feature/12-epub-parsing`
 
+## Creating the Branch
+
+```bash
+git checkout -b [branch-name]
+```
+
 ## After Creating
 
 Confirm the branch was created:
@@ -62,9 +68,33 @@ git branch --show-current
 
 Remind me what I'm about to work on and suggest next steps.
 
+## Working on an Issue Directly
+
+If starting work from a GitHub issue, use gh to create and link:
+
+```bash
+# View available issues
+gh issue list
+
+# Create branch linked to an issue (auto-names branch)
+gh issue develop [issue-number] --checkout
+
+# Or create with custom branch name
+gh issue develop [issue-number] --name feature/my-branch --checkout
+```
+
+This automatically links the branch to the issue on GitHub.
+
 ## If I Want to Work on an Existing Branch
 
 ```bash
 git checkout [branch-name]
 git pull origin [branch-name]  # if it exists remotely
+```
+
+## View Remote Branches
+
+```bash
+gh repo view --web  # Open repo in browser
+git branch -r       # List remote branches
 ```

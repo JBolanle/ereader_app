@@ -8,9 +8,19 @@ This project serves dual purposes:
 1. **Learning**: Master modern Python development, testing, and architecture
 2. **Practical**: Build a working e-reader I can actually use
 
+## Prerequisites
+
+Before starting, ensure you have:
+- **Python 3.11+**: `python --version`
+- **uv**: Install from https://github.com/astral-sh/uv
+- **git**: `git --version`
+- **GitHub CLI**: `gh --version` (install from https://cli.github.com)
+  - Authenticate with: `gh auth login`
+
 ## Tech Stack
 
 - **Package Manager**: uv (required for all dependency operations)
+- **Version Control**: git + GitHub CLI (`gh`) for GitHub integration
 - **UI Framework**: TBD (evaluate tkinter, PyQt6, or textual first)
 - **Python Version**: 3.11+
 - **Testing**: pytest with async support
@@ -76,10 +86,11 @@ This project serves dual purposes:
 
 ## Development Workflow
 
-1. All work happens on feature branches
-2. Issues track all tasks
-3. Code review before merging (use /reviewer)
-4. Use conventional commits
+1. All work happens on feature branches (`/branch`)
+2. Issues track all tasks — use `gh issue` to manage (`/issues`)
+3. Code review before merging (use `/code-review`)
+4. PRs created via `gh pr create` (`/pr`)
+5. Use conventional commits (`/commit`)
 
 ## Learning Goals
 
@@ -160,17 +171,17 @@ ereader-app/
 | I'm stuck, small nudge please | `/hint` |
 | Help me debug (teach, don't fix) | `/debug` |
 | Do this for me (boilerplate) | `/developer` |
-| Is my code good? | `/reviewer` |
+| Is my code good? | `/code-review` |
 | Test my understanding | `/quiz` |
 | End of session summary | `/wrapup` |
 | Run a full feature cycle | `/sprint` |
 
-### Git Operations
+### Git & GitHub Operations
 
 | Situation | Command |
 |-----------|---------|
 | Start new work | `/branch` |
-| Where am I? What's my state? | `/status` |
+| Where am I? What's my state? | `/gh-status` |
 | Save my work with good message | `/commit` |
 | What changed? | `/diff` |
 | Explore history | `/log` |
@@ -178,8 +189,10 @@ ereader-app/
 | Sync with remote / handle merges | `/sync` |
 | Temporarily save work | `/stash` |
 | Fix a git mistake | `/undo` |
+| Manage GitHub issues | `/issues` |
+| Manage GitHub repository | `/repo` |
 
 ## Other Notes
-- IMPORTANT: Always use context7 when I need code generation, setup or configuration steps, or
+- [IMPORTANT] Always use context7 when I need code generation, setup or configuration steps, or
 library/API documentation. This means you should automatically use the Context7 MCP
 tools to resolve library id and get library docs without me having to explicitly ask.
