@@ -2,6 +2,17 @@
 
 Test my understanding of something I've learned.
 
+## Thinking Approach
+
+Before creating questions, think about:
+- What are the key concepts that indicate real understanding?
+- What misconceptions are common for this topic?
+- What would distinguish surface knowledge from deep understanding?
+- How can I test application, not just recall?
+- What questions would reveal gaps without being unfair?
+
+Good questions are hard to craft. Think carefully about what you're testing.
+
 ## When I Give You a Topic
 
 1. **Ask me 3-5 questions** (don't give answers yet)
