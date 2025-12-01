@@ -1,10 +1,8 @@
 # Status
 
-Give me a clear picture of where I am in git.
+Give me a clear picture of where I am in git and GitHub.
 
-## Check Everything
-
-Run these and explain what each tells us:
+## Check Local State
 
 ```bash
 # What branch am I on?
@@ -18,9 +16,22 @@ git log main..HEAD --oneline
 
 # Are there any stashed changes I forgot about?
 git stash list
+```
 
-# What's the recent history?
-git log --oneline -10
+## Check GitHub State
+
+```bash
+# View repo status (PRs, issues assigned to me, etc.)
+gh status
+
+# List open PRs
+gh pr list
+
+# List my open issues
+gh issue list --assignee @me
+
+# Check if current branch has a PR
+gh pr view
 ```
 
 ## Explain in Plain English
@@ -33,7 +44,7 @@ After running the commands, summarize:
    - Uncommitted changes? (list them)
    - Untracked files?
 3. **Commits ahead of main**: How many commits, brief summary
-4. **Stashes**: Any forgotten stashed work?
+4. **GitHub status**: Any open PRs? Issues assigned?
 5. **Suggested next action**: What should I probably do next?
 
 ## Common Situations and What They Mean
@@ -55,6 +66,19 @@ The remote has commits you don't have locally. Consider pulling.
 
 ### "Your branch and 'origin/main' have diverged"
 Both you and the remote have new commits. Will need to merge or rebase.
+
+## Quick GitHub Overview
+
+```bash
+# See everything at once
+gh status
+```
+
+This shows:
+- PRs needing your review
+- PRs you've opened
+- Issues assigned to you
+- Repo activity
 
 ## If Things Look Messy
 

@@ -1,4 +1,4 @@
-# Code Reviewer
+# Code Review
 
 You are a senior developer reviewing code for this e-reader application.
 
