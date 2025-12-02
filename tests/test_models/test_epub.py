@@ -773,3 +773,281 @@ class TestEPUBManifestAndSpineParsing:
         # All items should be in manifest regardless of media type
         assert len(book._manifest) == 7
         assert all(item_id in book._manifest for item_id, _, _ in manifest)
+
+
+class TestEPUBChapterContent:
+    """Test reading chapter content from EPUB files."""
+
+    def _create_epub_with_content(
+        self,
+        tmp_path: Path,
+        chapters: dict[str, str] | None = None,
+    ) -> Path:
+        """Helper to create an EPUB with chapter content.
+
+        Args:
+            tmp_path: Temporary directory from pytest fixture.
+            chapters: Dict mapping chapter IDs to their content (XHTML/HTML strings).
+
+        Returns:
+            Path to the created EPUB file.
+        """
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        # Build OPF with manifest and spine from chapters
+        opf_parts = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<package xmlns="http://www.idpf.org/2007/opf" version="3.0">',
+            '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">',
+            "<dc:title>Test Book</dc:title>",
+            "</metadata>",
+            "<manifest>",
+        ]
+
+        if chapters:
+            for chapter_id in chapters:
+                opf_parts.append(
+                    f'<item id="{chapter_id}" href="{chapter_id}.xhtml" '
+                    'media-type="application/xhtml+xml"/>'
+                )
+
+        opf_parts.append("</manifest>")
+        opf_parts.append('<spine toc="ncx">')
+
+        if chapters:
+            for chapter_id in chapters:
+                opf_parts.append(f'<itemref idref="{chapter_id}"/>')
+
+        opf_parts.append("</spine>")
+        opf_parts.append("</package>")
+
+        opf_xml = "\n".join(opf_parts)
+
+        # Create the EPUB ZIP file
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+
+            # Write chapter content files
+            if chapters:
+                for chapter_id, content in chapters.items():
+                    zf.writestr(f"OEBPS/{chapter_id}.xhtml", content)
+
+        return epub_file
+
+    def test_get_chapter_count(self, tmp_path: Path) -> None:
+        """Test getting the total number of chapters."""
+        chapters = {
+            "ch1": "<html><body><h1>Chapter 1</h1></body></html>",
+            "ch2": "<html><body><h1>Chapter 2</h1></body></html>",
+            "ch3": "<html><body><h1>Chapter 3</h1></body></html>",
+        }
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        assert book.get_chapter_count() == 3
+
+    def test_get_chapter_content_first_chapter(self, tmp_path: Path) -> None:
+        """Test reading content of the first chapter."""
+        chapter_content = "<html><body><h1>Chapter 1</h1><p>This is the first chapter.</p></body></html>"
+        chapters = {
+            "ch1": chapter_content,
+            "ch2": "<html><body><h1>Chapter 2</h1></body></html>",
+        }
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        content = book.get_chapter_content(0)
+        assert content == chapter_content
+
+    def test_get_chapter_content_middle_chapter(self, tmp_path: Path) -> None:
+        """Test reading content of a middle chapter."""
+        chapter2_content = "<html><body><h1>Chapter 2</h1><p>Middle chapter content.</p></body></html>"
+        chapters = {
+            "ch1": "<html><body><h1>Chapter 1</h1></body></html>",
+            "ch2": chapter2_content,
+            "ch3": "<html><body><h1>Chapter 3</h1></body></html>",
+        }
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        content = book.get_chapter_content(1)
+        assert content == chapter2_content
+
+    def test_get_chapter_content_last_chapter(self, tmp_path: Path) -> None:
+        """Test reading content of the last chapter."""
+        chapter3_content = "<html><body><h1>Chapter 3</h1><p>Final chapter.</p></body></html>"
+        chapters = {
+            "ch1": "<html><body><h1>Chapter 1</h1></body></html>",
+            "ch2": "<html><body><h1>Chapter 2</h1></body></html>",
+            "ch3": chapter3_content,
+        }
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        content = book.get_chapter_content(2)
+        assert content == chapter3_content
+
+    def test_get_chapter_content_with_utf8_encoding(self, tmp_path: Path) -> None:
+        """Test reading chapter content with UTF-8 encoding (special characters)."""
+        chapter_content = "<html><body><h1>Chaptér 1</h1><p>Tëst with spëcial chäracters: 你好, مرحبا</p></body></html>"
+        chapters = {"ch1": chapter_content}
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        content = book.get_chapter_content(0)
+        assert content == chapter_content
+        assert "你好" in content
+        assert "مرحبا" in content
+
+    def test_get_chapter_content_negative_index_raises_error(self, tmp_path: Path) -> None:
+        """Test that negative chapter index raises IndexError."""
+        chapters = {"ch1": "<html><body><h1>Chapter 1</h1></body></html>"}
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        with pytest.raises(IndexError) as exc_info:
+            book.get_chapter_content(-1)
+
+        assert "out of range" in str(exc_info.value).lower()
+
+    def test_get_chapter_content_index_too_large_raises_error(self, tmp_path: Path) -> None:
+        """Test that chapter index >= chapter count raises IndexError."""
+        chapters = {
+            "ch1": "<html><body><h1>Chapter 1</h1></body></html>",
+            "ch2": "<html><body><h1>Chapter 2</h1></body></html>",
+        }
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        with pytest.raises(IndexError) as exc_info:
+            book.get_chapter_content(2)  # Only 2 chapters (indices 0-1)
+
+        assert "out of range" in str(exc_info.value).lower()
+
+    def test_get_chapter_content_missing_file_raises_error(self, tmp_path: Path) -> None:
+        """Test that missing chapter file raises CorruptedEPUBError."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        # Create EPUB without the actual chapter file
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+            # NOT writing OEBPS/chapter1.xhtml
+
+        book = EPUBBook(epub_file)
+
+        with pytest.raises(CorruptedEPUBError) as exc_info:
+            book.get_chapter_content(0)
+
+        assert "not found" in str(exc_info.value).lower()
+
+    def test_get_chapter_content_with_nested_directory(self, tmp_path: Path) -> None:
+        """Test reading chapter content from nested directory structure."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="content/chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        chapter_content = "<html><body><h1>Chapter 1</h1><p>Nested content.</p></body></html>"
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+            zf.writestr("OEBPS/content/chapter1.xhtml", chapter_content)
+
+        book = EPUBBook(epub_file)
+        content = book.get_chapter_content(0)
+
+        assert content == chapter_content
+
+    def test_get_chapter_content_with_opf_at_root(self, tmp_path: Path) -> None:
+        """Test reading chapter content when OPF is at root level (not in subdirectory)."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        chapter_content = "<html><body><h1>Chapter 1</h1><p>Root level chapter.</p></body></html>"
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("content.opf", opf_xml)
+            zf.writestr("chapter1.xhtml", chapter_content)
+
+        book = EPUBBook(epub_file)
+        content = book.get_chapter_content(0)
+
+        assert content == chapter_content
