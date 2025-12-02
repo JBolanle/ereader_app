@@ -21,17 +21,17 @@ This project serves dual purposes:
 
 See [CLAUDE.md](CLAUDE.md) for detailed development context and current sprint.
 
-## Prerequisites
+## 📋 Prerequisites
 
 Before you begin, ensure you have:
 
-- **Python 3.11+**: Check with `python --version`
-- **uv**: Install from https://github.com/astral-sh/uv
-- **git**: Check with `git --version`
-- **GitHub CLI** (optional): Install from https://cli.github.com
+- 🐍 **Python 3.11+**: Check with `python --version`
+- 📦 **uv**: Install from https://github.com/astral-sh/uv
+- 🔧 **git**: Check with `git --version`
+- 🐙 **GitHub CLI** (optional): Install from https://cli.github.com
   - Authenticate with: `gh auth login`
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 # Clone the repository
@@ -48,17 +48,17 @@ uv run pytest
 uv run ruff check src/
 ```
 
-## Development
+## 💻 Development
 
 ### For Contributors
 
 This project follows strict development standards:
 
-- **Type hints** on all functions (required, not optional)
-- **Tests** for every new function
-- **Custom exceptions** from `src/ereader/exceptions.py` (no bare `except:`)
-- **Logging** instead of `print()` statements
-- **Conventional commits** for all commit messages
+- 🏷️ **Type hints** on all functions (required, not optional)
+- ✅ **Tests** for every new function
+- ⚠️ **Custom exceptions** from `src/ereader/exceptions.py` (no bare `except:`)
+- 📝 **Logging** instead of `print()` statements
+- 📌 **Conventional commits** for all commit messages
 
 See **[CLAUDE.md](CLAUDE.md)** for comprehensive development guidelines, code standards, and workflow patterns.
 
@@ -100,17 +100,17 @@ gh pr status
 gh pr create
 ```
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-- **Language**: Python 3.11+
-- **Package Manager**: uv (required - do not use pip)
-- **Architecture**: Model-View-Controller (MVC)
-- **Testing**: pytest with async support
-- **Linting**: ruff
-- **Type Checking**: mypy (to be added)
-- **UI Framework**: TBD (evaluating tkinter, PyQt6, or textual)
+- 🐍 **Language**: Python 3.11+
+- 📦 **Package Manager**: uv (required - do not use pip)
+- 🏗️ **Architecture**: Model-View-Controller (MVC)
+- ✅ **Testing**: pytest with async support
+- 🔍 **Linting**: ruff
+- 🏷️ **Type Checking**: mypy (to be added)
+- 🎨 **UI Framework**: TBD (evaluating tkinter, PyQt6, or textual)
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 ereader_app/
@@ -134,55 +134,55 @@ ereader_app/
 └── README.md            # This file
 ```
 
-## Features Roadmap
+## 🗺️ Features Roadmap
 
-### Core (MVP)
+### 🎯 Core (MVP)
 - [ ] Open and render EPUB files
 - [ ] Page/chapter navigation
 - [ ] Reading progress tracking
 - [ ] Basic reading themes (light/dark)
 
-### Important
+### ⭐ Important
 - [ ] PDF support
 - [ ] Bookmarks
 - [ ] Annotations/highlights
 - [ ] Library management
 
-### Nice-to-Have
+### ✨ Nice-to-Have
 - [ ] TXT support
 - [ ] Search within book
 - [ ] Customizable fonts and sizing
 - [ ] Reading statistics
 
-### Future
+### 🔮 Future
 - [ ] MOBI support
 - [ ] Cloud sync
 - [ ] Plugin architecture
 
-## Development Philosophy
+## 💡 Development Philosophy
 
 - **Make it work, make it right, make it fast** (in that order)
 - **YAGNI**: Don't build features until needed
 - **Test-driven when appropriate**: Clear specs → tests first
 - **Refactor when patterns emerge**, not before
 
-## Contributing
+## 🤝 Contributing
 
-1. Check [open issues](https://github.com/JBolanle/ereader_app/issues) or create a new one
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Read [CLAUDE.md](CLAUDE.md) for code standards and workflow patterns
-4. Make your changes following the code standards
-5. Run tests and linting: `uv run pytest && uv run ruff check src/`
-6. Commit with conventional commits: `feat: add your feature`
-7. Push and create a pull request
+1️⃣ Check [open issues](https://github.com/JBolanle/ereader_app/issues) or create a new one
+2️⃣ Create a feature branch: `git checkout -b feature/your-feature`
+3️⃣ Read [CLAUDE.md](CLAUDE.md) for code standards and workflow patterns
+4️⃣ Make your changes following the code standards
+5️⃣ Run tests and linting: `uv run pytest && uv run ruff check src/`
+6️⃣ Commit with conventional commits: `feat: add your feature`
+7️⃣ Push and create a pull request
 
-## Documentation
+## 📚 Documentation
 
 - **[CLAUDE.md](CLAUDE.md)** - Main development guide (code standards, workflows, architecture)
 - **[docs/architecture/](docs/architecture/)** - Architectural decisions and rationale
 - **[docs/specs/](docs/specs/)** - Feature specifications and designs
 
-## License
+## 📄 License
 
 MIT
 
