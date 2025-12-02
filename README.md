@@ -23,7 +23,7 @@ This project uses [uv](https://github.com/astral-sh/uv) for package management.
 
 ```bash
 # Clone the repository
-git clone https://github.com/JBolanle/ereader-app.git
+git clone https://github.com/JBolanle/ereader_app.git
 cd ereader-app
 
 # Install dependencies
