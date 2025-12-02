@@ -90,8 +90,15 @@ class EPUBBook:
         self.authors: list[str] = ["Unknown Author"]
         self.language: str = "en"
 
+        # Initialize structure attributes
+        self._manifest: dict[str, str] = {}  # item id -> href
+        self._spine: list[str] = []  # ordered list of item ids
+
         # Extract metadata from the EPUB
         self._extract_metadata()
+
+        # Parse manifest and spine
+        self._parse_manifest_and_spine()
 
     def _get_opf_path(self) -> str:
         """Find the path to the OPF file from container.xml.
@@ -186,6 +193,78 @@ class EPUBBook:
                     logger.debug("Extracted language: %s", self.language)
                 else:
                     logger.warning("No language found, using default")
+
+        except ET.ParseError as e:
+            logger.error("Failed to parse OPF file %s: %s", opf_path, e)
+            raise CorruptedEPUBError(f"Malformed OPF file {opf_path}: {e}") from e
+        except KeyError:
+            logger.error("OPF file not found in EPUB: %s", opf_path)
+            raise CorruptedEPUBError(f"OPF file not found in EPUB: {opf_path}") from None
+
+    def _parse_manifest_and_spine(self) -> None:
+        """Parse manifest and spine from the OPF file.
+
+        The manifest is a list of all files in the EPUB (ID -> file path mapping).
+        The spine is the reading order (ordered list of manifest item IDs).
+
+        This method extracts both structures from the OPF file and stores them
+        in _manifest and _spine attributes.
+
+        Raises:
+            CorruptedEPUBError: If OPF is malformed or missing required elements.
+        """
+        opf_path = self._get_opf_path()
+
+        try:
+            with zipfile.ZipFile(self.filepath) as zf:
+                opf_data = zf.read(opf_path)
+                opf_root = ET.fromstring(opf_data)
+
+                # Parse manifest - maps item ID to file href
+                manifest_elem = opf_root.find(".//{*}manifest")
+                if manifest_elem is None:
+                    logger.error("Missing manifest element in OPF")
+                    raise CorruptedEPUBError("Missing required manifest element in OPF")
+
+                for item in manifest_elem.findall(".//{*}item"):
+                    item_id = item.get("id")
+                    href = item.get("href")
+                    if item_id and href:
+                        # Warn if duplicate IDs found (technically invalid per EPUB spec)
+                        if item_id in self._manifest:
+                            logger.warning(
+                                "Duplicate manifest item ID: %s (previous: %s, new: %s)",
+                                item_id,
+                                self._manifest[item_id],
+                                href,
+                            )
+                        self._manifest[item_id] = href
+
+                logger.debug("Parsed %d items in manifest", len(self._manifest))
+
+                # Parse spine - ordered list of item IDs for reading order
+                spine_elem = opf_root.find(".//{*}spine")
+                if spine_elem is None:
+                    logger.error("Missing spine element in OPF")
+                    raise CorruptedEPUBError("Missing required spine element in OPF")
+
+                for itemref in spine_elem.findall(".//{*}itemref"):
+                    idref = itemref.get("idref")
+                    if idref:
+                        if idref in self._manifest:
+                            self._spine.append(idref)
+                        else:
+                            logger.warning(
+                                "Spine references non-existent manifest item: %s", idref
+                            )
+
+                if not self._spine:
+                    logger.error("Empty spine (no chapters)")
+                    raise CorruptedEPUBError(
+                        "Empty spine: EPUB must have at least one chapter"
+                    )
+
+                logger.debug("Parsed spine with %d chapters", len(self._spine))
 
         except ET.ParseError as e:
             logger.error("Failed to parse OPF file %s: %s", opf_path, e)
