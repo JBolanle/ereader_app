@@ -37,9 +37,8 @@ class EPUBBook:
         filepath: Path to the EPUB file.
 
     Raises:
-        InvalidEPUBError: If the file is not a valid EPUB (not a ZIP file).
+        InvalidEPUBError: If the file is not a valid EPUB.
         FileNotFoundError: If the file does not exist.
-        PermissionError: If the file cannot be read due to permissions.
     """
 
     def __init__(self, filepath: str | Path) -> None:
@@ -49,28 +48,35 @@ class EPUBBook:
             filepath: Path to the EPUB file to open.
 
         Raises:
-            InvalidEPUBError: If the file is not a valid ZIP archive.
+            InvalidEPUBError: If the file is not a valid EPUB.
             FileNotFoundError: If the file does not exist.
-            PermissionError: If the file cannot be read due to permissions.
         """
         self.filepath = Path(filepath)
-        logger.info(f"Initializing EPUBBook with file: {self.filepath}")
+        logger.info("Initializing EPUBBook with file: %s", self.filepath)
 
         # Validate the file exists
         if not self.filepath.exists():
-            logger.error(f"File not found: {self.filepath}")
+            logger.error("File not found: %s", self.filepath)
             raise FileNotFoundError(f"EPUB file not found: {self.filepath}")
 
         # Validate it's a readable file
         if not self.filepath.is_file():
-            logger.error(f"Path is not a file: {self.filepath}")
+            logger.error("Path is not a file: %s", self.filepath)
             raise InvalidEPUBError(f"Path is not a file: {self.filepath}")
 
         # Validate the file is a ZIP archive (EPUBs are ZIP files)
         if not zipfile.is_zipfile(self.filepath):
-            logger.error(f"File is not a valid ZIP archive: {self.filepath}")
+            logger.error("File is not a valid ZIP archive: %s", self.filepath)
             raise InvalidEPUBError(
                 f"{self.filepath} is not a valid EPUB file (not a ZIP archive)"
             )
 
-        logger.debug(f"Successfully validated EPUB file: {self.filepath}")
+        # Validate EPUB structure - must have container.xml
+        with zipfile.ZipFile(self.filepath) as zf:
+            if "META-INF/container.xml" not in zf.namelist():
+                logger.error("Missing META-INF/container.xml in: %s", self.filepath)
+                raise InvalidEPUBError(
+                    f"{self.filepath} is missing required META-INF/container.xml"
+                )
+
+        logger.debug("Successfully validated EPUB file: %s", self.filepath)

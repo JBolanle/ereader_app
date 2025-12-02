@@ -14,10 +14,11 @@ class TestEPUBBookInit:
 
     def test_init_with_valid_epub(self, tmp_path: Path) -> None:
         """Test initialization with a valid EPUB file (ZIP archive)."""
-        # Create a minimal valid ZIP file (EPUBs are ZIP archives)
+        # Create a minimal valid EPUB (ZIP with container.xml)
         epub_file = tmp_path / "test.epub"
         with zipfile.ZipFile(epub_file, "w") as zf:
             zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", "<?xml version='1.0'?>")
 
         book = EPUBBook(epub_file)
         assert book.filepath == epub_file
@@ -27,6 +28,7 @@ class TestEPUBBookInit:
         epub_file = tmp_path / "test.epub"
         with zipfile.ZipFile(epub_file, "w") as zf:
             zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", "<?xml version='1.0'?>")
 
         # Pass string instead of Path object
         book = EPUBBook(str(epub_file))
@@ -77,6 +79,7 @@ class TestEPUBBookInit:
         epub_file = tmp_path / "test book (2023) - author's name.epub"
         with zipfile.ZipFile(epub_file, "w") as zf:
             zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", "<?xml version='1.0'?>")
 
         book = EPUBBook(epub_file)
         assert book.filepath == epub_file
@@ -86,6 +89,18 @@ class TestEPUBBookInit:
         epub_file = tmp_path / "书名-作者.epub"
         with zipfile.ZipFile(epub_file, "w") as zf:
             zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", "<?xml version='1.0'?>")
 
         book = EPUBBook(epub_file)
         assert book.filepath == epub_file
+
+    def test_init_with_zip_without_container_xml(self, tmp_path: Path) -> None:
+        """Test initialization with a ZIP file missing META-INF/container.xml."""
+        zip_file = tmp_path / "not_an_epub.zip"
+        with zipfile.ZipFile(zip_file, "w") as zf:
+            zf.writestr("some_file.txt", "random content")
+
+        with pytest.raises(InvalidEPUBError) as exc_info:
+            EPUBBook(zip_file)
+
+        assert "container.xml" in str(exc_info.value).lower()
