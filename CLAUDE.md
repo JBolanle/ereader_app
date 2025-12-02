@@ -301,7 +301,8 @@ These things I must implement myself (for learning):
   - [x] ZIP file handling with Python's zipfile module
   - [x] Basic XML parsing with ElementTree
   - [x] Navigate from container.xml to content.opf
-  - [ ] Extract metadata from content.opf
+  - [x] Extract metadata from content.opf (title, author, language)
+  - [ ] Extract manifest (list of all files)
   - [ ] Extract spine (reading order)
   - [ ] Read actual chapter content
 - [x] Core architecture setup (COMPLETED - Issue #1)
@@ -320,6 +321,7 @@ Record architectural decisions here as they're made:
 | 2025-12-01 | Learning approach: Parse before UI | Understand EPUB format deeply before building interface | - |
 | 2025-12-01 | Exception organization: Centralized | Single exceptions.py file prevents circular imports, follows Python patterns | docs/architecture/project-structure.md |
 | 2025-12-01 | Test structure: Mirror source | tests/test_models/ mirrors src/ereader/models/ for discoverability | docs/architecture/project-structure.md |
+| 2025-12-01 | Namespace fallback pattern | EPUBs use either `dc` or `dcterms` for metadata; fallback ensures compatibility | - |
 | TBD | UI framework | TBD | TBD |
 
 ## File Structure
