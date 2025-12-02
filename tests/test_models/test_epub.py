@@ -29,6 +29,12 @@ class TestEPUBBookInit:
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:title>Test Book</dc:title>
 </metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
 </package>"""
 
         with zipfile.ZipFile(epub_file, "w") as zf:
@@ -55,6 +61,12 @@ class TestEPUBBookInit:
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:title>Test Book</dc:title>
 </metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
 </package>"""
 
         with zipfile.ZipFile(epub_file, "w") as zf:
@@ -122,6 +134,12 @@ class TestEPUBBookInit:
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:title>Test Book</dc:title>
 </metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
 </package>"""
 
         with zipfile.ZipFile(epub_file, "w") as zf:
@@ -148,6 +166,12 @@ class TestEPUBBookInit:
 <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
 <dc:title>Test Book</dc:title>
 </metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
 </package>"""
 
         with zipfile.ZipFile(epub_file, "w") as zf:
@@ -179,6 +203,8 @@ class TestEPUBMetadataExtraction:
         title: str | None = None,
         authors: list[str] | None = None,
         language: str | None = None,
+        manifest: list[tuple[str, str, str]] | None = None,
+        spine: list[str] | None = None,
     ) -> Path:
         """Helper to create a minimal EPUB with specified metadata.
 
@@ -187,6 +213,8 @@ class TestEPUBMetadataExtraction:
             title: Book title (omit to test missing title).
             authors: List of authors (omit to test missing authors).
             language: Language code (omit to test missing language).
+            manifest: List of (id, href, media-type) tuples (omit for minimal manifest).
+            spine: List of item IDs for spine (omit for minimal spine).
 
         Returns:
             Path to the created EPUB file.
@@ -218,7 +246,37 @@ class TestEPUBMetadataExtraction:
         if language:
             opf_parts.append(f"<dc:language>{language}</dc:language>")
 
-        opf_parts.extend(["</metadata>", "</package>"])
+        opf_parts.append("</metadata>")
+
+        # Add manifest - use provided or create minimal default
+        if manifest is not None:
+            opf_parts.append("<manifest>")
+            for item_id, href, media_type in manifest:
+                opf_parts.append(
+                    f'<item id="{item_id}" href="{href}" media-type="{media_type}"/>'
+                )
+            opf_parts.append("</manifest>")
+        else:
+            # Add minimal manifest for tests that don't specify one
+            opf_parts.append("<manifest>")
+            opf_parts.append(
+                '<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>'
+            )
+            opf_parts.append("</manifest>")
+
+        # Add spine - use provided or create minimal default
+        if spine is not None:
+            opf_parts.append('<spine toc="ncx">')
+            for idref in spine:
+                opf_parts.append(f'<itemref idref="{idref}"/>')
+            opf_parts.append("</spine>")
+        else:
+            # Add minimal spine for tests that don't specify one
+            opf_parts.append('<spine toc="ncx">')
+            opf_parts.append('<itemref idref="ch1"/>')
+            opf_parts.append("</spine>")
+
+        opf_parts.append("</package>")
         opf_xml = "\n".join(opf_parts)
 
         # Create the EPUB ZIP file
@@ -320,6 +378,12 @@ class TestEPUBMetadataExtraction:
 <dc:creator>  Whitespace Author  </dc:creator>
 <dc:language>  en  </dc:language>
 </metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
 </package>"""
 
         with zipfile.ZipFile(epub_file, "w") as zf:
@@ -444,3 +508,268 @@ class TestEPUBMetadataExtraction:
             EPUBBook(epub_file)
 
         assert "not found" in str(exc_info.value).lower()
+
+
+class TestEPUBManifestAndSpineParsing:
+    """Test manifest and spine parsing from EPUB files."""
+
+    def _create_epub_with_structure(
+        self,
+        tmp_path: Path,
+        manifest: list[tuple[str, str, str]] | None = None,
+        spine: list[str] | None = None,
+    ) -> Path:
+        """Helper to create an EPUB with manifest and spine structure.
+
+        Args:
+            tmp_path: Temporary directory from pytest fixture.
+            manifest: List of (id, href, media-type) tuples.
+            spine: List of item IDs for spine.
+
+        Returns:
+            Path to the created EPUB file.
+        """
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_parts = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<package xmlns="http://www.idpf.org/2007/opf" version="3.0">',
+            '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">',
+            "<dc:title>Test Book</dc:title>",
+            "</metadata>",
+        ]
+
+        # Add manifest
+        if manifest is not None:
+            opf_parts.append("<manifest>")
+            for item_id, href, media_type in manifest:
+                opf_parts.append(
+                    f'<item id="{item_id}" href="{href}" media-type="{media_type}"/>'
+                )
+            opf_parts.append("</manifest>")
+
+        # Add spine
+        if spine is not None:
+            opf_parts.append('<spine toc="ncx">')
+            for idref in spine:
+                opf_parts.append(f'<itemref idref="{idref}"/>')
+            opf_parts.append("</spine>")
+
+        opf_parts.append("</package>")
+        opf_xml = "\n".join(opf_parts)
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+
+        return epub_file
+
+    def test_parse_manifest_with_multiple_items(self, tmp_path: Path) -> None:
+        """Test parsing manifest with multiple items of different types."""
+        manifest = [
+            ("ch1", "chapter1.xhtml", "application/xhtml+xml"),
+            ("ch2", "chapter2.xhtml", "application/xhtml+xml"),
+            ("cover", "cover.jpg", "image/jpeg"),
+            ("css", "style.css", "text/css"),
+            ("ncx", "toc.ncx", "application/x-dtbncx+xml"),
+        ]
+        spine = ["ch1", "ch2"]
+
+        epub_file = self._create_epub_with_structure(tmp_path, manifest, spine)
+        book = EPUBBook(epub_file)
+
+        # Check manifest was parsed correctly
+        assert hasattr(book, "_manifest")
+        assert len(book._manifest) == 5
+        assert book._manifest["ch1"] == "chapter1.xhtml"
+        assert book._manifest["ch2"] == "chapter2.xhtml"
+        assert book._manifest["cover"] == "cover.jpg"
+        assert book._manifest["css"] == "style.css"
+        assert book._manifest["ncx"] == "toc.ncx"
+
+    def test_parse_spine_in_correct_order(self, tmp_path: Path) -> None:
+        """Test that spine preserves reading order."""
+        manifest = [
+            ("ch1", "chapter1.xhtml", "application/xhtml+xml"),
+            ("ch2", "chapter2.xhtml", "application/xhtml+xml"),
+            ("ch3", "chapter3.xhtml", "application/xhtml+xml"),
+        ]
+        spine = ["ch1", "ch2", "ch3"]
+
+        epub_file = self._create_epub_with_structure(tmp_path, manifest, spine)
+        book = EPUBBook(epub_file)
+
+        # Check spine was parsed in correct order
+        assert hasattr(book, "_spine")
+        assert len(book._spine) == 3
+        assert book._spine[0] == "ch1"
+        assert book._spine[1] == "ch2"
+        assert book._spine[2] == "ch3"
+
+    def test_manifest_maps_id_to_href_correctly(self, tmp_path: Path) -> None:
+        """Test that manifest correctly maps item IDs to file paths."""
+        manifest = [
+            ("item1", "content/chapter_1.html", "application/xhtml+xml"),
+            ("item2", "content/chapter_2.html", "application/xhtml+xml"),
+        ]
+        spine = ["item1", "item2"]
+
+        epub_file = self._create_epub_with_structure(tmp_path, manifest, spine)
+        book = EPUBBook(epub_file)
+
+        # Verify ID to href mapping
+        assert book._manifest["item1"] == "content/chapter_1.html"
+        assert book._manifest["item2"] == "content/chapter_2.html"
+
+    def test_spine_references_manifest_items(self, tmp_path: Path) -> None:
+        """Test that all spine items reference valid manifest items."""
+        manifest = [
+            ("ch1", "chapter1.xhtml", "application/xhtml+xml"),
+            ("ch2", "chapter2.xhtml", "application/xhtml+xml"),
+            ("img1", "image.jpg", "image/jpeg"),  # Not in spine
+        ]
+        spine = ["ch1", "ch2"]
+
+        epub_file = self._create_epub_with_structure(tmp_path, manifest, spine)
+        book = EPUBBook(epub_file)
+
+        # All spine items should be in manifest
+        for spine_id in book._spine:
+            assert spine_id in book._manifest
+
+        # Manifest can have items not in spine (like images)
+        assert "img1" in book._manifest
+        assert "img1" not in book._spine
+
+    def test_missing_manifest_raises_error(self, tmp_path: Path) -> None:
+        """Test that missing manifest element raises CorruptedEPUBError."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        # OPF without manifest
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+
+        with pytest.raises(CorruptedEPUBError) as exc_info:
+            EPUBBook(epub_file)
+
+        assert "manifest" in str(exc_info.value).lower()
+
+    def test_missing_spine_raises_error(self, tmp_path: Path) -> None:
+        """Test that missing spine element raises CorruptedEPUBError."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        # OPF without spine
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+</package>"""
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+
+        with pytest.raises(CorruptedEPUBError) as exc_info:
+            EPUBBook(epub_file)
+
+        assert "spine" in str(exc_info.value).lower()
+
+    def test_empty_spine_raises_error(self, tmp_path: Path) -> None:
+        """Test that empty spine (no chapters) raises CorruptedEPUBError."""
+        manifest = [
+            ("css", "style.css", "text/css"),
+            ("cover", "cover.jpg", "image/jpeg"),
+        ]
+        spine = []  # Empty spine
+
+        epub_file = self._create_epub_with_structure(tmp_path, manifest, spine)
+
+        with pytest.raises(CorruptedEPUBError) as exc_info:
+            EPUBBook(epub_file)
+
+        assert "spine" in str(exc_info.value).lower()
+
+    def test_spine_with_invalid_idref_skips_item(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that spine with invalid idref logs warning and skips that item."""
+        manifest = [
+            ("ch1", "chapter1.xhtml", "application/xhtml+xml"),
+            ("ch3", "chapter3.xhtml", "application/xhtml+xml"),
+        ]
+        spine = ["ch1", "ch2", "ch3"]  # ch2 doesn't exist in manifest
+
+        epub_file = self._create_epub_with_structure(tmp_path, manifest, spine)
+
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            book = EPUBBook(epub_file)
+
+        # Should have logged a warning about ch2
+        assert any("ch2" in record.message for record in caplog.records)
+        assert any("non-existent" in record.message.lower() for record in caplog.records)
+
+        # Spine should only contain valid items
+        assert len(book._spine) == 2
+        assert book._spine == ["ch1", "ch3"]
+        assert "ch2" not in book._spine
+
+    def test_manifest_with_different_media_types(self, tmp_path: Path) -> None:
+        """Test that manifest parses items with various media types."""
+        manifest = [
+            ("ch1", "chapter1.xhtml", "application/xhtml+xml"),
+            ("ch2", "chapter2.html", "text/html"),
+            ("img1", "cover.jpg", "image/jpeg"),
+            ("img2", "diagram.png", "image/png"),
+            ("css1", "style.css", "text/css"),
+            ("font1", "font.ttf", "application/font-sfnt"),
+            ("ncx", "toc.ncx", "application/x-dtbncx+xml"),
+        ]
+        spine = ["ch1", "ch2"]
+
+        epub_file = self._create_epub_with_structure(tmp_path, manifest, spine)
+        book = EPUBBook(epub_file)
+
+        # All items should be in manifest regardless of media type
+        assert len(book._manifest) == 7
+        assert all(item_id in book._manifest for item_id, _, _ in manifest)
