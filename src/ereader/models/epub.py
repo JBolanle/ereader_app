@@ -272,3 +272,84 @@ class EPUBBook:
         except KeyError:
             logger.error("OPF file not found in EPUB: %s", opf_path)
             raise CorruptedEPUBError(f"OPF file not found in EPUB: {opf_path}") from None
+
+    def get_chapter_count(self) -> int:
+        """Get the number of chapters in the book.
+
+        Returns:
+            The number of chapters in the reading order (spine).
+        """
+        return len(self._spine)
+
+    def get_chapter_content(self, chapter_index: int) -> str:
+        """Get the content of a chapter by its index in the reading order.
+
+        Args:
+            chapter_index: Zero-based index of the chapter in the spine.
+
+        Returns:
+            The chapter content as a string (XHTML/HTML).
+
+        Raises:
+            IndexError: If chapter_index is out of range.
+            CorruptedEPUBError: If the chapter file is missing or unreadable.
+        """
+        if chapter_index < 0 or chapter_index >= len(self._spine):
+            logger.error(
+                "Chapter index %d out of range (0-%d)", chapter_index, len(self._spine) - 1
+            )
+            raise IndexError(
+                f"Chapter index {chapter_index} out of range (0-{len(self._spine) - 1})"
+            )
+
+        # Get the item ID from spine
+        item_id = self._spine[chapter_index]
+        logger.debug("Reading chapter %d (item ID: %s)", chapter_index, item_id)
+
+        # Get the file path from manifest
+        if item_id not in self._manifest:
+            logger.error("Spine item ID %s not found in manifest", item_id)
+            raise CorruptedEPUBError(
+                f"Spine references item {item_id} that doesn't exist in manifest"
+            )
+
+        chapter_href = self._manifest[item_id]
+        logger.debug("Chapter file: %s", chapter_href)
+
+        # Resolve the full path within the EPUB
+        # Chapter hrefs are relative to the OPF file location
+        opf_path = self._get_opf_path()
+        opf_dir = str(Path(opf_path).parent)
+
+        # Build the full path within the ZIP
+        if opf_dir and opf_dir != ".":
+            full_path = f"{opf_dir}/{chapter_href}"
+        else:
+            full_path = chapter_href
+
+        logger.debug("Full path in EPUB: %s", full_path)
+
+        # Read the chapter content from the ZIP
+        try:
+            with zipfile.ZipFile(self.filepath) as zf:
+                # Read as bytes first
+                content_bytes = zf.read(full_path)
+
+                # Decode to string - try UTF-8 first, then fall back to latin-1
+                try:
+                    content = content_bytes.decode("utf-8")
+                    logger.debug("Decoded chapter as UTF-8")
+                except UnicodeDecodeError:
+                    logger.warning("UTF-8 decode failed, trying latin-1")
+                    content = content_bytes.decode("latin-1")
+
+                logger.debug(
+                    "Successfully read chapter %d (%d bytes)", chapter_index, len(content)
+                )
+                return content
+
+        except KeyError:
+            logger.error("Chapter file not found in EPUB: %s", full_path)
+            raise CorruptedEPUBError(
+                f"Chapter file {full_path} not found in EPUB (referenced by item {item_id})"
+            ) from None
