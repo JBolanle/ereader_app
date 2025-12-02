@@ -296,19 +296,22 @@ These things I must implement myself (for learning):
 
 - [x] Project initialization
 - [ ] UI framework decision (deferred - learning parsing first)
-- [x] Started EPUB parsing learning
+- [x] EPUB parsing learning (COMPLETED)
   - [x] Understand EPUB structure (ZIP-based format)
   - [x] ZIP file handling with Python's zipfile module
   - [x] Basic XML parsing with ElementTree
   - [x] Navigate from container.xml to content.opf
   - [x] Extract metadata from content.opf (title, author, language)
-  - [ ] Extract manifest (list of all files)
-  - [ ] Extract spine (reading order)
-  - [ ] Read actual chapter content
+  - [x] Extract manifest (list of all files)
+  - [x] Extract spine (reading order)
+  - [x] Read actual chapter content
 - [x] Core architecture setup (COMPLETED - Issue #1)
   - [x] Exception module created
   - [x] Test structure established
   - [x] Architecture documented
+- [ ] Remaining EPUB tasks
+  - [ ] Error handling improvements (Issue #6)
+  - [ ] Integration testing with real EPUBs (Issue #7)
 - [ ] EPUB rendering MVP
 
 ## Decisions Log
@@ -322,6 +325,7 @@ Record architectural decisions here as they're made:
 | 2025-12-01 | Exception organization: Centralized | Single exceptions.py file prevents circular imports, follows Python patterns | docs/architecture/project-structure.md |
 | 2025-12-01 | Test structure: Mirror source | tests/test_models/ mirrors src/ereader/models/ for discoverability | docs/architecture/project-structure.md |
 | 2025-12-01 | Namespace fallback pattern | EPUBs use either `dc` or `dcterms` for metadata; fallback ensures compatibility | - |
+| 2025-12-02 | Encoding fallback: UTF-8 → latin-1 | Try UTF-8 first (modern standard), fall back to latin-1 (never fails) for older EPUBs | - |
 | TBD | UI framework | TBD | TBD |
 
 ## File Structure

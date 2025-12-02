@@ -13,9 +13,13 @@ This project serves dual purposes:
 ### Current Progress
 
 - [x] Core architecture setup (MVC pattern, exception handling)
-- [x] Test infrastructure established
-- [x] EPUB format understanding (ZIP-based structure, XML parsing)
-- [ ] EPUB metadata extraction (in progress)
+- [x] Test infrastructure established (40 passing tests)
+- [x] EPUB parsing complete
+  - [x] Metadata extraction (title, author, language)
+  - [x] Manifest and spine parsing (file structure, reading order)
+  - [x] Chapter content reading (with UTF-8/latin-1 encoding support)
+- [ ] EPUB error handling improvements (issue #6)
+- [ ] Integration testing with real EPUBs (issue #7)
 - [ ] EPUB rendering engine
 - [ ] UI framework selection (deferred - learning parsing first)
 
