@@ -15,7 +15,8 @@ Read CLAUDE.md for project context and code standards.
 7. Run tests: `uv run pytest`
 8. Run linting: `uv run ruff check src/`
 9. Commit with a clear conventional commit message
-10. Push the branch: `git push -u origin [branch-name]`
+10. Use a subagent to perform a self-assessment with `/code-review` and implement all required changes
+11. Push the branch: `git push -u origin [branch-name]`
 
 **Do not open a PR yet—wait for review instructions.**
 
