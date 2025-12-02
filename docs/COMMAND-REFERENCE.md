@@ -2,6 +2,24 @@
 
 Quick reference for all custom Claude Code commands in this project.
 
+**Tip:** Type `/` in Claude Code to see all available commands with tab-completion.
+
+---
+
+## Code Standards Quick Reference
+
+Before using commands, remember these non-negotiable rules:
+
+- ✓ **Type hints** on all functions (parameters and return types)
+- ✓ **Tests** for every new function (in `tests/` mirroring `src/`)
+- ✓ **Custom exceptions** from `src/ereader/exceptions.py` (no bare `except:`)
+- ✓ **Logging** instead of `print()` statements
+- ✓ **Conventional commits** for all git commits
+- ✓ **Run tests before committing**: `uv run pytest`
+- ✓ **Run linting before committing**: `uv run ruff check src/`
+
+See [CLAUDE.md](../CLAUDE.md) for complete code standards and architecture principles.
+
 ---
 
 ## Development Workflow Commands
@@ -15,9 +33,16 @@ Quick reference for all custom Claude Code commands in this project.
 
 ### `/architect` — System Architect
 **When to use**: Making technical decisions, designing components, evaluating libraries
+
+**Enhanced thinking**: For important architectural decisions, the architect uses extended thinking:
+- Standard decisions: Natural thinking about tradeoffs
+- Important decisions (multi-component impact): "think hard" for thorough evaluation
+- Critical decisions (foundational, hard to change): "think harder" or "ultrathink"
+
 ```
 /architect "Should we use PyQt6 or textual for the UI?"
 /architect "Design the plugin architecture"
+/architect "think hard about whether to use Protocols or ABCs for book parsers"
 ```
 
 ### `/mentor` — Teaching Companion
@@ -37,9 +62,16 @@ Quick reference for all custom Claude Code commands in this project.
 
 ### `/developer` — Code Implementer
 **When to use**: Delegating implementation (use sparingly when learning)
+
+**Workflow selection**: The developer adapts to task complexity:
+- **Simple tasks** (< 1 hour): Direct implementation
+- **Complex features**: Explore → Plan → Code → Commit pattern
+- **Clear specifications**: Test-Driven Development (TDD) approach
+
 ```
 /developer "Implement issue #12"
 /developer "Generate test scaffolding for the bookmark module"
+/developer "Use TDD approach for the metadata extraction function"
 ```
 
 ### `/code-review` — Code Reviewer
@@ -166,29 +198,120 @@ Quick reference for all custom Claude Code commands in this project.
 
 ---
 
+## Development Workflow Patterns
+
+This project follows specific patterns for different types of work. Understanding these helps you choose the right commands.
+
+### Pattern 1: Explore → Plan → Code → Commit
+**Use for:** Non-trivial features, new components, complex refactoring
+
+**Flow:**
+1. **Explore** — Understand existing code and patterns
+   - Use subagents: "Use a subagent to investigate how we handle X"
+   - Read relevant files and specs in `docs/specs/`
+   - Ask clarifying questions
+   - **DO NOT write code yet**
+
+2. **Plan** — Design the approach
+   - Create written plan outlining approach
+   - Consider: What files change? What tests needed? What patterns to follow?
+   - Document architectural decisions in `docs/architecture/`
+   - Review plan before implementation
+
+3. **Code** — Implement the solution
+   - Follow plan and code standards
+   - Run tests frequently during development
+   - Commit related changes together
+
+4. **Review & Commit** — Ensure quality
+   - Run full test suite and linting
+   - Use `/code-review` for self-assessment
+   - Write clear conventional commit message
+
+### Pattern 2: Test-Driven Development (TDD)
+**Use for:** Clear input/output specifications, bug fixes, core algorithms
+
+**Flow:**
+1. **Write failing tests first**
+   - Cover happy path, edge cases, error conditions
+   - Run tests to confirm they fail appropriately
+   - Commit: `test: add tests for [feature]`
+
+2. **Implement to pass tests**
+   - Write simplest code that makes tests pass
+   - Run tests after each small change
+   - DO NOT modify tests unless they have bugs
+
+3. **Refactor with safety**
+   - Improve code quality while keeping tests green
+   - Commit: `feat: implement [feature]`
+
+### Pattern 3: Visual Iteration (UI/UX)
+**Use for:** UI components, layouts, visual features
+
+**Flow:**
+1. Implement visual feature in code
+2. Capture screenshot or observe result
+3. Compare against design mock or existing patterns
+4. Make incremental adjustments
+5. Repeat until result matches expectations
+
+### Using Subagents Effectively
+
+Subagents preserve main context while investigating specific questions:
+
+```
+"Use a subagent to investigate how EPUB spine ordering works in our current code"
+"Use a subagent to check if we already have a caching pattern for page rendering"
+```
+
+**When to use subagents:**
+- Early in tasks to verify assumptions
+- To investigate specific details without cluttering main context
+- For focused searches across multiple files
+- When exploring unfamiliar parts of the codebase
+
+---
+
 ## Common Workflows
 
 ### Starting a New Feature (Learning Mode)
 ```
-/pm "Create spec for [feature]"          # Get spec and issues
-/mentor "Explain what I need to know"    # Learn the concepts
-/branch "feature/[name]"                 # Create branch
-# ... implement yourself ...
-/hint "stuck on X"                       # Get nudges when stuck
-/code-review                             # Get feedback
+/pm "Create spec for [feature]"                              # Get spec and issues
+/mentor "Explain what I need to know"                        # Learn the concepts
+/branch "feature/[name]"                                     # Create branch
+# Use a subagent to investigate existing patterns
+# ... implement yourself using TDD or Explore→Plan→Code pattern ...
+/hint "stuck on X"                                           # Get nudges when stuck
+/code-review                                                 # Get feedback
 # ... fix issues ...
-/commit                                  # Save work
-/pr                                      # Open PR
-/wrapup                                  # Document session
+/commit                                                      # Save work
+/pr                                                          # Open PR
+/wrapup                                                      # Document session
 ```
 
 ### Starting a New Feature (Faster Mode)
 ```
-/pm "Create spec for [feature]"          # Get spec and issues
-/architect "Design the component"        # Get architecture
-/developer "Implement issue #N"          # Delegate implementation
-/code-review                             # Review the code
-/pr                                      # Open PR
+/pm "Create spec for [feature]"                              # Get spec and issues
+/architect "Design the component"                            # Get architecture
+"Use a subagent to check existing patterns for X"            # Quick investigation
+/developer "Implement issue #N using Explore→Plan→Code"      # Delegate with pattern
+/code-review                                                 # Review the code
+/pr                                                          # Open PR
+```
+
+### Complex Feature (TDD Approach)
+```
+/pm "Create spec for [feature]"                              # Get spec and issues
+/architect "Design component interface"                      # Define API surface
+/branch "feature/[name]"                                     # Create branch
+/developer "Write tests first for issue #N"                  # Create failing tests
+# Verify tests fail
+/developer "Implement to pass tests"                         # Write implementation
+# Run tests, iterate
+/code-review                                                 # Review
+/commit                                                      # Save work
+/pr                                                          # Open PR
 ```
 
 ### Debugging a Problem
