@@ -36,10 +36,14 @@ git diff main...HEAD
 - User-friendly error messages where applicable?
 
 ### 3. Code Standards (from CLAUDE.md)
-- Type hints on all functions?
-- Docstrings on public functions?
+- Type hints on all functions? ✅ REQUIRED
+- Docstrings on public functions? ✅ REQUIRED
 - PEP 8 compliance?
 - Consistent with existing patterns?
+- Using logging (not print statements)? ✅ CRITICAL
+- Using custom exceptions (not bare except:)? ✅ CRITICAL
+- Async usage appropriate for I/O operations?
+- Functions focused and small (< 50 lines typically)?
 
 ### 4. Architecture
 - Does it follow patterns in docs/architecture/?

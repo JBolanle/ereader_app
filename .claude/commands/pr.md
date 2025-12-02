@@ -4,7 +4,16 @@ Help me open a well-documented pull request using GitHub CLI.
 
 ## Pre-PR Checklist
 
-Before opening, verify:
+**From CLAUDE.md - Pull Request Requirements:**
+
+Before requesting review:
+- [ ] All tests pass (`uv run pytest`)
+- [ ] Linting passes (`uv run ruff check src/`)
+- [ ] Changes are documented (docstrings, comments)
+- [ ] Breaking changes noted in PR description
+- [ ] Related issue linked (Closes #123)
+
+**Verify with:**
 
 ```bash
 # Are we on a feature branch (not main)?
@@ -101,6 +110,15 @@ Closes #[issue number]
 ## Testing
 - [ ] Unit tests added/updated
 - [ ] Manual testing performed
+
+## Quality Checklist (from CLAUDE.md)
+- [ ] All tests pass (`uv run pytest`)
+- [ ] Linting passes (`uv run ruff check src/`)
+- [ ] Type hints on all new functions
+- [ ] Docstrings on all new public functions
+- [ ] No print() statements (using logging)
+- [ ] No bare except: clauses
+- [ ] Changes are atomic and focused
 
 ## Notes for Reviewers
 [Anything specific to look at?]
