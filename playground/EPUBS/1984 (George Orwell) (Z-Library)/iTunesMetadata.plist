@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>artistName</key>
+	<string>Orwell, George</string>
+	<key>book-info</key>
+	<dict>
+		<key>cover-image-hash</key>
+		<string>859F6E71D7C9E68276D6A0B0BB82255C</string>
+		<key>cover-image-path</key>
+		<string>cover.jpeg</string>
+		<key>package-file-hash</key>
+		<string>0CCDFB3A37F619D12842732FFEBB1998</string>
+		<key>publisher-unique-id</key>
+		<string>739097b7-4eca-4b6a-94e2-5a7fb05da2b8</string>
+		<key>unique-id</key>
+		<integer>-7955368979154809936</integer>
+	</dict>
+	<key>itemName</key>
+	<string>1984</string>
+	<key>playlistName</key>
+	<string>1984</string>
+	<key>releaseDate</key>
+	<string>2010-06-03T04:00:00+00:00</string>
+	<key>sort-artist</key>
+	<string>George, Orwell,</string>
+	<key>sort-artist-status</key>
+	<integer>3</integer>
+</dict>
+</plist>

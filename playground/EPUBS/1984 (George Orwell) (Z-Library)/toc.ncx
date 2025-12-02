@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="UND">
+  <head>
+    <meta content="739097b7-4eca-4b6a-94e2-5a7fb05da2b8" name="dtb:uid"/>
+    <meta content="2" name="dtb:depth"/>
+    <meta content="calibre (0.6.52)" name="dtb:generator"/>
+    <meta content="0" name="dtb:totalPageCount"/>
+    <meta content="0" name="dtb:maxPageNumber"/>
+  </head>
+  <docTitle>
+    <text>1984</text>
+  </docTitle>
+  <navMap>
+    <navPoint class="chapter" id="28ca71f5-4f3e-4d59-b2d2-d825703c59d5" playOrder="1">
+      <navLabel>
+        <text>PART I</text>
+      </navLabel>
+      <content src="content/Orwell - 1984 - 0451524934_split_0_split_001.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="e5454cf5-9f13-45c8-a2d4-7b016358edab" playOrder="2">
+      <navLabel>
+        <text>PART II</text>
+      </navLabel>
+      <content src="content/Orwell - 1984 - 0451524934_split_2.html"/>
+    </navPoint>
+    <navPoint class="chapter" id="4f4e1759-696e-4d7c-b35f-6003729f2b36" playOrder="3">
+      <navLabel>
+        <text>PART III</text>
+      </navLabel>
+      <content src="content/Orwell - 1984 - 0451524934_split_5.html"/>
+    </navPoint>
+  </navMap>
+</ncx>

@@ -77,7 +77,6 @@ venv.bak/
 *.pdf
 *.mobi
 !tests/data/*
-playground/
 
 # Test data (but keep the directory)
 tests/data/*
