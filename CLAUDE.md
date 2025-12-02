@@ -8,6 +8,37 @@ This project serves dual purposes:
 1. **Learning**: Master modern Python development, testing, and architecture
 2. **Practical**: Build a working e-reader I can actually use
 
+## Quick Command Reference
+
+### Running Tests & Quality Checks
+- Run all tests: `uv run pytest`
+- Run specific test: `uv run pytest tests/test_models/test_book.py`
+- Run with coverage: `uv run pytest --cov=src/ereader`
+- Run linter: `uv run ruff check src/`
+- Auto-fix linting: `uv run ruff check --fix src/`
+- Type checking: `uv run mypy src/` (when enabled)
+
+### Package Management
+- Add dependency: `uv add package-name`
+- Add dev dependency: `uv add --dev package-name`
+- Update dependencies: `uv sync`
+- Run Python script: `uv run python script.py`
+- Run module: `uv run python -m ereader`
+
+### Git Operations (via gh CLI when possible)
+- View issue: `gh issue view [number]`
+- Create issue: `gh issue create`
+- View PR: `gh pr view`
+- Create PR: `gh pr create`
+- Check status: `gh pr status`
+
+### Development Environment
+- Python: 3.11+ required
+- Package manager: `uv` (NEVER use pip directly)
+- Test framework: pytest
+- Linter: ruff
+- Type checker: mypy (optional, to be added later)
+
 ## Prerequisites
 
 Before starting, ensure you have:
@@ -27,6 +58,39 @@ Before starting, ensure you have:
 - **Linting**: ruff
 - **Type Checking**: mypy (optional, introduce later)
 
+## Important Constraints
+
+CRITICAL - These rules are non-negotiable for code quality:
+
+**Type Safety:**
+- ALWAYS add type hints to function signatures (parameters and return types)
+- Use `from typing import ...` for complex types
+- Type hints are not optional—they're required
+
+**Error Handling:**
+- NEVER use bare `except:` clauses
+- ALWAYS use custom exceptions from `src/ereader/exceptions.py`
+- Log errors with context before raising
+- Handle exceptions at appropriate levels (don't catch too early)
+
+**Testing:**
+- EVERY new function must have at least one test
+- Tests go in `tests/` mirroring the `src/` structure
+- Run tests before committing: `uv run pytest`
+- Test both happy path and edge cases
+
+**Code Style:**
+- NEVER use `print()` — use logging instead
+- ALWAYS run `uv run ruff check src/` before committing
+- Follow existing patterns in the codebase
+- Use Google-style docstrings for all public functions
+- Keep functions focused and small (< 50 lines typically)
+
+**Async Usage:**
+- Use async/await for I/O operations that could block UI
+- Don't overuse async for CPU-bound operations
+- Follow asyncio best practices (no blocking calls in async functions)
+
 ## Architecture Principles
 
 - **Pattern**: Model-View-Controller (MVC)
@@ -43,6 +107,50 @@ Before starting, ensure you have:
 - Comprehensive error handling with custom exceptions
 - Logging instead of print statements
 - Conventional commits for git messages
+
+## Repository Etiquette
+
+### Branch Naming
+- Feature work: `feature/short-description` (e.g., `feature/epub-metadata`)
+- Bug fixes: `fix/short-description` (e.g., `fix/memory-leak`)
+- Refactoring: `refactor/short-description`
+- Documentation: `docs/short-description`
+
+### Commit Messages
+Use conventional commits format:
+```
+type(scope): brief description
+
+[optional body with more details]
+
+[optional footer: Closes #123]
+```
+
+**Types:** feat, fix, docs, style, refactor, test, chore
+
+**Good examples:**
+- `feat(epub): add metadata extraction from content.opf`
+- `fix(ui): prevent crash when book has no cover`
+- `test(models): add edge cases for empty chapters`
+
+### Merge Strategy
+- Squash and merge for feature branches (cleaner history)
+- Keep commits atomic and focused
+- One logical change per commit when possible
+
+### Pull Request Requirements
+Before requesting review:
+- [ ] All tests pass (`uv run pytest`)
+- [ ] Linting passes (`uv run ruff check src/`)
+- [ ] Changes are documented (docstrings, comments)
+- [ ] Breaking changes noted in PR description
+- [ ] Related issue linked (Closes #123)
+
+### Code Review Process
+- Use `/code-review` for self-review before creating PR
+- Address all review comments or explain why not
+- Keep PRs focused and reasonably sized
+- Update PR description if scope changes
 
 ## Target Features (Priority Order)
 
@@ -83,6 +191,81 @@ Before starting, ensure you have:
 - **YAGNI**: Don't build features or abstractions until needed
 - **First implementation**: Simplest thing that works
 - **Refactor**: When patterns emerge, not before
+
+## Development Workflow Patterns
+
+### Pattern 1: Explore → Plan → Code → Commit
+**Use for:** Non-trivial features, new components, complex refactoring
+
+1. **Explore (understand first)**
+   - Read relevant existing code and understand patterns
+   - Check specs in `docs/specs/` if they exist
+   - Use subagents for focused investigations: "Use a subagent to investigate how we currently handle X"
+   - Ask clarifying questions before proceeding
+   - **DO NOT write code yet**
+
+2. **Plan (design the approach)**
+   - Create a written plan outlining the approach
+   - Consider: What files change? What tests are needed? What patterns to follow?
+   - For architectural decisions, document in `docs/architecture/`
+   - Review plan before implementation
+
+3. **Code (implement the solution)**
+   - Implement following the plan and code standards
+   - Run tests frequently during development
+   - Commit related changes together
+
+4. **Review & Commit (ensure quality)**
+   - Run full test suite and linting
+   - Self-review with `/code-review`
+   - Write clear conventional commit message
+   - Push and create PR when ready
+
+### Pattern 2: Test-Driven Development (TDD)
+**Use for:** Clear input/output specifications, bug fixes, core algorithms
+
+1. **Write failing tests first**
+   - Write tests for functionality that doesn't exist yet
+   - Cover happy path, edge cases, and error conditions
+   - Run tests to confirm they fail appropriately
+   - Commit tests: `test: add tests for [feature]`
+
+2. **Implement to pass tests**
+   - Write simplest code that makes tests pass
+   - Run tests after each small change
+   - Iterate until all tests pass
+   - DO NOT modify tests unless they have bugs
+
+3. **Refactor with safety**
+   - Improve code quality while keeping tests green
+   - Run tests after each refactor
+   - Commit: `feat: implement [feature]`
+
+### Pattern 3: Visual Iteration (UI/UX work)
+**Use for:** UI components, layouts, visual features
+
+1. Implement visual feature in code
+2. Capture screenshot or observe result
+3. Compare against design mock or existing patterns
+4. Make incremental adjustments
+5. Repeat until result matches expectations
+6. Keep iterations small and focused
+
+### Using Subagents Effectively
+Subagents preserve main context while investigating specific questions:
+- "Use a subagent to investigate how EPUB spine ordering works in our current code"
+- "Use a subagent to check if we already have a caching pattern for page rendering"
+- Best used early in tasks to verify assumptions
+- Keeps main context focused on implementation
+
+### Iterative Improvement
+For complex implementations:
+1. Get something working first (even if imperfect)
+2. Test and identify specific improvements needed
+3. Make one targeted improvement at a time
+4. Verify each improvement helps
+5. Repeat until quality standards met
+6. Remember: "First version good, 2-3 iterations much better"
 
 ## Development Workflow
 
@@ -165,38 +348,59 @@ ereader-app/
 └── README.md
 ```
 
-## Quick Reference: Commands
+## Command Reference
 
-### Development Workflow
+### Learning & Teaching
+| Command | Purpose |
+|---------|---------|
+| `/mentor` | Teach concepts while building; get explanations before code |
+| `/study` | Deep dive into a specific topic |
+| `/quiz` | Test understanding of concepts |
+| `/hint` | Get small nudge when stuck (not full solution) |
 
-| Situation | Command |
-|-----------|---------|
-| What should I build next? | `/pm` |
-| How should this be architected? | `/architect` |
-| Explain this concept to me | `/mentor` or `/study` |
-| I'm stuck, small nudge please | `/hint` |
-| Help me debug (teach, don't fix) | `/debug` |
-| Do this for me (boilerplate) | `/developer` |
-| Is my code good? | `/code-review` |
-| Test my understanding | `/quiz` |
-| End of session summary | `/wrapup` |
-| Run a full feature cycle | `/sprint` |
+### Development Workflows
+| Command | Purpose |
+|---------|---------|
+| `/developer` | Implement features with full workflow (issue → code → test → commit) |
+| `/sprint` | Run complete feature cycle (plan → implement → review → PR) |
+| `/debug` | Debug with teaching approach (help me find the issue) |
 
-### Git & GitHub Operations
+### Planning & Architecture
+| Command | Purpose |
+|---------|---------|
+| `/architect` | Make architectural decisions; design component interfaces |
+| `/pm` | Product management; prioritize features and plan work |
 
-| Situation | Command |
-|-----------|---------|
-| Start new work | `/branch` |
-| Where am I? What's my state? | `/gh-status` |
-| Save my work with good message | `/commit` |
-| What changed? | `/diff` |
-| Explore history | `/log` |
-| Open a pull request | `/pr` |
-| Sync with remote / handle merges | `/sync` |
-| Temporarily save work | `/stash` |
-| Fix a git mistake | `/undo` |
-| Manage GitHub issues | `/issues` |
-| Manage GitHub repository | `/repo` |
+### Code Quality
+| Command | Purpose |
+|---------|---------|
+| `/code-review` | Review code quality before committing or creating PR |
+
+### Version Control (Git)
+| Command | Purpose |
+|---------|---------|
+| `/branch` | Create new feature branch with proper naming |
+| `/commit` | Create commit with conventional commit message |
+| `/diff` | Review current changes |
+| `/log` | Explore git history |
+| `/stash` | Temporarily save uncommitted work |
+| `/undo` | Fix git mistakes (wrong commit, wrong branch, etc.) |
+
+### GitHub Integration
+| Command | Purpose |
+|---------|---------|
+| `/gh-status` | Check current git and GitHub status |
+| `/pr` | Create pull request with description |
+| `/sync` | Sync with remote, handle merges |
+| `/issues` | Manage GitHub issues (create, view, update) |
+| `/repo` | Repository-level operations |
+
+### Session Management
+| Command | Purpose |
+|---------|---------|
+| `/wrapup` | End of session summary; what was accomplished |
+
+**Tip:** Type `/` in Claude Code to see all available commands with tab-completion.
 
 ## Other Notes
 - [IMPORTANT] Always use context7 when I need code generation, setup or configuration steps, or

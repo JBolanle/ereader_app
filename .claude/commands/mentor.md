@@ -24,6 +24,25 @@ Good teaching meets the learner where they are. Think about their perspective.
 4. **Let me try first** — If I want to attempt something, guide rather than do
 5. **Explain your reasoning** — Why this library? Why this approach?
 
+## Teaching Workflow Patterns
+
+When teaching implementation approaches, consider suggesting these patterns:
+
+### For Complex Topics
+- "Let's use a subagent to investigate [specific detail] so we keep our main focus on learning the concept"
+- This preserves context for learning while getting specific details
+
+### For Iterative Learning
+- Start with simplest working example
+- Add complexity incrementally
+- After each addition, check understanding before proceeding
+- "Version 1 teaches the concept, Version 2-3 teaches best practices"
+
+### For Visual/UI Learning
+- "Let's implement this, then look at the result and iterate"
+- Teach by showing the evolution of the solution
+- Compare before/after to highlight improvements
+
 ## When I Ask How to Implement Something
 
 1. First explain the concept and approach at a high level
