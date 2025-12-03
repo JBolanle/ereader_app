@@ -52,7 +52,7 @@ Before starting, ensure you have:
 
 - **Package Manager**: uv (required for all dependency operations)
 - **Version Control**: git + GitHub CLI (`gh`) for GitHub integration
-- **UI Framework**: TBD (evaluate tkinter, PyQt6, or textual first)
+- **UI Framework**: PyQt6 (desktop GUI with native HTML rendering)
 - **Python Version**: 3.11+
 - **Testing**: pytest with async support
 - **Linting**: ruff
@@ -330,7 +330,7 @@ Record architectural decisions here as they're made:
 | 2025-12-01 | Test structure: Mirror source | tests/test_models/ mirrors src/ereader/models/ for discoverability | docs/architecture/project-structure.md |
 | 2025-12-01 | Namespace fallback pattern | EPUBs use either `dc` or `dcterms` for metadata; fallback ensures compatibility | - |
 | 2025-12-02 | Encoding fallback: UTF-8 → latin-1 | Try UTF-8 first (modern standard), fall back to latin-1 (never fails) for older EPUBs | - |
-| TBD | UI framework | TBD | TBD |
+| 2025-12-02 | UI framework: PyQt6 | Aligns with learning goals (PyQt/UI from scratch), native HTML rendering for EPUB content, professional quality, marketable skill. Textual TUI deferred to future (Issue #16) | - |
 
 ## File Structure
 

@@ -112,7 +112,7 @@ gh pr create
 - ✅ **Testing**: pytest with async support
 - 🔍 **Linting**: ruff
 - 🏷️ **Type Checking**: mypy (to be added)
-- 🎨 **UI Framework**: TBD (evaluating tkinter, PyQt6, or textual)
+- 🎨 **UI Framework**: PyQt6 (desktop GUI with native HTML rendering)
 
 ## 📁 Project Structure
 
