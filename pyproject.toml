@@ -70,6 +70,12 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v"
 
+[tool.coverage.run]
+omit = [
+    "src/ereader/views/*",
+    "src/ereader/__main__.py",
+]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true

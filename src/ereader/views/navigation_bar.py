@@ -7,6 +7,7 @@ and keyboard shortcuts for navigating between chapters.
 import logging
 
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 logger = logging.getLogger(__name__)
@@ -93,7 +94,7 @@ class NavigationBar(QWidget):
         logger.debug("Next button clicked")
         self.next_chapter_requested.emit()
 
-    def keyPressEvent(self, event) -> None:
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         """Handle keyboard shortcuts for navigation.
 
         Supports:

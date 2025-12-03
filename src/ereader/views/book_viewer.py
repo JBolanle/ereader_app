@@ -1,24 +1,24 @@
 """Book viewer widget for displaying EPUB chapter content.
 
-This module provides the BookViewer class, which wraps QTextBrowser to
-display HTML/XHTML content from EPUB chapters. It implements the BookRenderer
-protocol to allow swapping implementations in the future.
+This module provides the BookViewer class, which uses composition to wrap
+QTextBrowser for displaying HTML/XHTML content from EPUB chapters. It implements
+the BookRenderer protocol to allow swapping implementations in the future.
 """
 
 import logging
 
-from PyQt6.QtWidgets import QTextBrowser, QWidget
+from PyQt6.QtWidgets import QTextBrowser, QVBoxLayout, QWidget
 
 logger = logging.getLogger(__name__)
 
 
-class BookViewer(QTextBrowser):
+class BookViewer(QWidget):
     """Widget for displaying book chapter content.
 
-    This class wraps QTextBrowser to provide a clean interface for displaying
-    EPUB chapter content. It implements the BookRenderer protocol, allowing
-    it to be swapped with other rendering implementations (e.g., QWebEngineView)
-    without changing controller code.
+    This class uses composition to wrap QTextBrowser, providing a clean interface
+    for displaying EPUB chapter content. It implements the BookRenderer protocol,
+    allowing the rendering implementation to be easily swapped (e.g., to
+    QWebEngineView) without changing controller code.
 
     QTextBrowser supports a subset of HTML 4 and CSS, which is sufficient for
     most EPUB books. It's lightweight and has a simple API.
@@ -33,13 +33,22 @@ class BookViewer(QTextBrowser):
         super().__init__(parent)
         logger.debug("Initializing BookViewer")
 
+        # Create the text browser renderer
+        self._renderer = QTextBrowser(self)
+
         # Configure the text browser
-        self.setReadOnly(True)  # Book content is read-only
-        self.setOpenExternalLinks(False)  # Don't open external links
-        self.setOpenLinks(False)  # Don't follow internal links (for now)
+        self._renderer.setReadOnly(True)  # Book content is read-only
+        self._renderer.setOpenExternalLinks(False)  # Don't open external links
+        self._renderer.setOpenLinks(False)  # Don't follow internal links (for now)
 
         # Set default styling for readability
         self._setup_default_style()
+
+        # Setup layout
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._renderer)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
 
         # Show welcome message
         self._show_welcome_message()
@@ -51,12 +60,12 @@ class BookViewer(QTextBrowser):
         logger.debug("Setting up default style")
 
         # Set base font size (can be customized later)
-        font = self.font()
+        font = self._renderer.font()
         font.setPointSize(12)
-        self.setFont(font)
+        self._renderer.setFont(font)
 
         # Add some padding via stylesheet
-        self.setStyleSheet("""
+        self._renderer.setStyleSheet("""
             QTextBrowser {
                 padding: 20px;
                 background-color: white;
@@ -77,7 +86,7 @@ class BookViewer(QTextBrowser):
         </body>
         </html>
         """
-        self.setHtml(welcome_html)
+        self._renderer.setHtml(welcome_html)
 
     def set_content(self, html: str) -> None:
         """Display HTML content in the viewer.
@@ -90,7 +99,7 @@ class BookViewer(QTextBrowser):
             html: HTML content to display (XHTML from EPUB chapter).
         """
         logger.debug("Setting content, length: %d bytes", len(html))
-        self.setHtml(html)
+        self._renderer.setHtml(html)
         logger.debug("Content set successfully")
 
     def clear(self) -> None:
@@ -100,7 +109,7 @@ class BookViewer(QTextBrowser):
         content from the viewer.
         """
         logger.debug("Clearing viewer content")
-        super().clear()
+        self._renderer.clear()
         logger.debug("Content cleared")
 
     def set_base_font_size(self, size: int) -> None:
@@ -112,7 +121,7 @@ class BookViewer(QTextBrowser):
             size: Font size in points.
         """
         logger.debug("Setting base font size to %d", size)
-        font = self.font()
+        font = self._renderer.font()
         font.setPointSize(size)
-        self.setFont(font)
+        self._renderer.setFont(font)
         logger.debug("Font size updated")

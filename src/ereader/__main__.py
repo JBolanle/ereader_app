@@ -6,9 +6,14 @@ It initializes the PyQt6 QApplication and shows the main window.
 Usage:
     python -m ereader
     uv run python -m ereader
+
+Environment Variables:
+    EREADER_LOG_LEVEL: Set logging level (DEBUG, INFO, WARNING, ERROR).
+                       Default: INFO
 """
 
 import logging
+import os
 import sys
 
 from PyQt6.QtWidgets import QApplication
@@ -16,8 +21,9 @@ from PyQt6.QtWidgets import QApplication
 from ereader.views.main_window import MainWindow
 
 # Configure logging
+log_level = os.getenv("EREADER_LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=getattr(logging, log_level, logging.INFO),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
