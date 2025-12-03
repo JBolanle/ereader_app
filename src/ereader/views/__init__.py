@@ -8,6 +8,7 @@ This package contains:
 - UI widgets and helpers
 """
 
+from ereader.views.book_viewer import BookViewer
 from ereader.views.main_window import MainWindow
 
-__all__ = ["MainWindow"]
+__all__ = ["BookViewer", "MainWindow"]

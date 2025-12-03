@@ -10,6 +10,7 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
 from ereader.controllers.reader_controller import ReaderController
+from ereader.views.book_viewer import BookViewer
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +34,13 @@ class MainWindow(QMainWindow):
 
         # Create controller
         self._controller = ReaderController()
-        self._setup_controller_connections()
 
-        # Setup UI components
+        # Create UI components
+        self._book_viewer = BookViewer(self)
+        self.setCentralWidget(self._book_viewer)
+
+        # Setup UI
+        self._setup_controller_connections()
         self._setup_menu_bar()
         self._setup_status_bar()
 
@@ -87,6 +92,7 @@ class MainWindow(QMainWindow):
         self._controller.book_loaded.connect(self._on_book_loaded)
         self._controller.error_occurred.connect(self._on_error)
         self._controller.chapter_changed.connect(self._on_chapter_changed)
+        self._controller.content_ready.connect(self._book_viewer.set_content)
 
         logger.debug("Controller connections established")
 
