@@ -8,10 +8,15 @@ This script measures:
 
 Usage:
     uv run python profile_performance.py [epub_path]
+
+Dependencies:
+    Requires psutil: uv add psutil
 """
 
 import argparse
 import gc
+import logging
+import re
 import sys
 import time
 from pathlib import Path
@@ -20,13 +25,19 @@ from typing import Any
 try:
     import psutil
 except ImportError:
-    print("Installing psutil for memory profiling...")
-    import subprocess
-    subprocess.run([sys.executable, "-m", "pip", "install", "psutil"], check=True)
-    import psutil
+    print("ERROR: psutil is required for memory profiling.")
+    print("Please install it with: uv add psutil")
+    sys.exit(1)
 
 from ereader.models.epub import EPUBBook
 from ereader.utils.html_resources import resolve_images_in_html
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 def get_memory_usage() -> float:
@@ -35,14 +46,14 @@ def get_memory_usage() -> float:
     return process.memory_info().rss / 1024 / 1024  # Convert bytes to MB
 
 
-def profile_epub_loading(epub_path: str) -> dict[str, Any]:
+def profile_epub_loading(epub_path: str) -> tuple[dict[str, Any], EPUBBook]:
     """Profile EPUB file loading performance.
 
     Args:
         epub_path: Path to the EPUB file to profile.
 
     Returns:
-        Dictionary with profiling results.
+        Tuple of (profiling results dictionary, loaded EPUBBook instance).
     """
     results: dict[str, Any] = {
         "file_path": epub_path,
@@ -162,18 +173,17 @@ def profile_image_resolution(book: EPUBBook, sample_size: int = 5) -> dict[str, 
 
             # Profile image resolution
             start_time = time.perf_counter()
-            resolved_content = resolve_images_in_html(content, book, chapter_href=chapter_href)
+            _ = resolve_images_in_html(content, book, chapter_href=chapter_href)
             resolution_time = time.perf_counter() - start_time
 
             results["resolution_times_ms"].append(resolution_time * 1000)
 
             # Count images
-            import re
             img_count = len(re.findall(r'<img[^>]+>', content, re.IGNORECASE))
             results["total_images"] += img_count
 
         except Exception as e:
-            print(f"Warning: Error processing chapter {idx}: {e}")
+            logger.warning("Error processing chapter %d: %s", idx, e)
             continue
 
     # Calculate statistics if we found images
@@ -213,13 +223,14 @@ def profile_memory_over_time(book: EPUBBook, num_chapters: int = 20) -> dict[str
         try:
             chapter_href = book.get_chapter_href(idx)
             content = book.get_chapter_content(idx)
-            resolved_content = resolve_images_in_html(content, book, chapter_href=chapter_href)
+            # Resolve images to simulate real usage (memory impact)
+            _ = resolve_images_in_html(content, book, chapter_href=chapter_href)
 
             # Take memory snapshot
             results["memory_snapshots_mb"].append(get_memory_usage())
 
         except Exception as e:
-            print(f"Warning: Error loading chapter {idx}: {e}")
+            logger.warning("Error loading chapter %d: %s", idx, e)
 
     # Calculate statistics
     snapshots = results["memory_snapshots_mb"]
@@ -366,29 +377,29 @@ def main() -> None:
     args = parser.parse_args()
 
     if not Path(args.epub_path).exists():
-        print(f"Error: EPUB file not found: {args.epub_path}")
+        logger.error("EPUB file not found: %s", args.epub_path)
         sys.exit(1)
 
-    print(f"Profiling: {args.epub_path}")
-    print(f"File size: {Path(args.epub_path).stat().st_size / 1024 / 1024:.2f} MB")
-    print("")
+    logger.info("Profiling: %s", args.epub_path)
+    logger.info("File size: %.2f MB", Path(args.epub_path).stat().st_size / 1024 / 1024)
+    logger.info("")
 
     # Run profiling
-    print("Phase 1: Profiling EPUB loading...")
+    logger.info("Phase 1: Profiling EPUB loading...")
     epub_results, book = profile_epub_loading(args.epub_path)
 
-    print("Phase 2: Profiling chapter loading...")
+    logger.info("Phase 2: Profiling chapter loading...")
     chapter_results = profile_chapter_loading(book, sample_size=10)
 
-    print("Phase 3: Profiling image resolution...")
+    logger.info("Phase 3: Profiling image resolution...")
     image_results = profile_image_resolution(book, sample_size=5)
 
-    print("Phase 4: Profiling memory usage over time...")
+    logger.info("Phase 4: Profiling memory usage over time...")
     memory_results = profile_memory_over_time(book, num_chapters=20)
 
-    print("")
-    print("Generating report...")
-    print("")
+    logger.info("")
+    logger.info("Generating report...")
+    logger.info("")
 
     # Generate report
     report = generate_report(epub_results, chapter_results, image_results, memory_results)
@@ -398,8 +409,9 @@ def main() -> None:
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(report)
-        print(f"Report written to: {args.output}")
+        logger.info("Report written to: %s", args.output)
     else:
+        # Print report to stdout (not using logger for report output)
         print(report)
 
 

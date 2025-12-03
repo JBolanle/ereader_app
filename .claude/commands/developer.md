@@ -9,7 +9,7 @@ Read CLAUDE.md for project context and code standards.
 1. If given an issue number, fetch it: `gh issue view [number]`
 2. Read the relevant spec in docs/specs/ if one exists
 3. Understand the task requirements fully before coding
-4. Create a feature branch: `git checkout -b feature/[short-description]`
+4. Create a branch: `git checkout -b [type]/[short-description]`
 5. Implement following the code standards in CLAUDE.md
 6. Write tests in tests/ mirroring the src/ structure
 7. Invoke `/test` to verify tests pass and coverage is acceptable
