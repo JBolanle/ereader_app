@@ -406,7 +406,20 @@ These things I must implement myself (for learning):
   - [x] Graceful error handling for missing images
   - [x] 100% test coverage on new code (13 new tests, 95 total)
   - [x] 96.42% overall coverage maintained
+- [x] Image path resolution fix (COMPLETED - PR #25) ✅
+  - [x] Context-aware path resolution for images in chapters
+  - [x] Added get_chapter_href() method to EPUBBook
+  - [x] Modified get_resource() to accept relative_to parameter
+  - [x] Tests for new method (94.41% coverage)
+- [x] Performance profiling (COMPLETED - PR #26) ✅
+  - [x] Comprehensive profiling script with CLI
+  - [x] EPUB loading, chapter rendering, image resolution, memory tracking
+  - [x] Statistical analysis (min/max/avg/median)
+  - [x] Tested with 3 diverse EPUBs (201MB, 3MB, 0.65MB)
+  - [x] Identified memory concern with large image-heavy books
+  - [x] Recommendations documented in docs/testing/
 - [ ] Next steps
+  - [ ] **Performance**: Implement LRU caching for chapters (Priority 1)
   - [ ] Arrow key navigation (Issue #21)
   - [ ] Basic reading themes (light/dark mode)
   - [ ] Bookmarks feature
@@ -429,6 +442,9 @@ Record architectural decisions here as they're made:
 | 2025-12-03 | MVC with Protocol abstraction | Controller owns state, views are stateless. Protocol interfaces enable swapping implementations (QTextBrowser → QWebEngineView). | docs/architecture/epub-rendering-architecture.md |
 | 2025-12-03 | Synchronous for MVP | No async until performance testing shows need. Simpler for learning, measure first before optimizing. | docs/architecture/epub-rendering-architecture.md |
 | 2025-12-03 | Image rendering: Base64 data URLs | Embed images as base64 in HTML for QTextBrowser compatibility. Simpler than QTextDocument resource API, acceptable memory trade-off (~33% larger) for MVP. Can add caching later if needed. | docs/reviews/feature-image-rendering.md |
+| 2025-12-03 | Context-aware path resolution | EPUB chapter images are relative to chapter file location, not OPF. Pass chapter_href through resolution chain to handle relative paths correctly. | - |
+| 2025-12-03 | Performance profiling with statistical sampling | Sample chapters evenly (e.g., 10 of 100) for balance between thoroughness and speed while getting representative results. | docs/testing/performance-summary.md |
+| 2025-12-03 | LRU caching as Priority 1 optimization | Profiling revealed memory growth with images (up to 559MB). LRU cache will cap at ~150MB even for large books. | docs/testing/performance-summary.md |
 
 ## File Structure
 
