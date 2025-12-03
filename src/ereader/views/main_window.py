@@ -7,10 +7,11 @@ as the container for all UI components.
 import logging
 
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
+from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QVBoxLayout, QWidget
 
 from ereader.controllers.reader_controller import ReaderController
 from ereader.views.book_viewer import BookViewer
+from ereader.views.navigation_bar import NavigationBar
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,16 @@ class MainWindow(QMainWindow):
 
         # Create UI components
         self._book_viewer = BookViewer(self)
-        self.setCentralWidget(self._book_viewer)
+        self._navigation_bar = NavigationBar(self)
+
+        # Create central widget with layout
+        central_widget = QWidget(self)
+        layout = QVBoxLayout(central_widget)
+        layout.addWidget(self._book_viewer)
+        layout.addWidget(self._navigation_bar)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.setCentralWidget(central_widget)
 
         # Setup UI
         self._setup_controller_connections()
@@ -89,10 +99,20 @@ class MainWindow(QMainWindow):
         """Connect controller signals to view slots."""
         logger.debug("Setting up controller signal connections")
 
+        # Connect controller to main window
         self._controller.book_loaded.connect(self._on_book_loaded)
         self._controller.error_occurred.connect(self._on_error)
         self._controller.chapter_changed.connect(self._on_chapter_changed)
+
+        # Connect controller to book viewer
         self._controller.content_ready.connect(self._book_viewer.set_content)
+
+        # Connect controller to navigation bar
+        self._controller.navigation_state_changed.connect(self._navigation_bar.update_buttons)
+
+        # Connect navigation bar to controller
+        self._navigation_bar.next_chapter_requested.connect(self._controller.next_chapter)
+        self._navigation_bar.previous_chapter_requested.connect(self._controller.previous_chapter)
 
         logger.debug("Controller connections established")
 

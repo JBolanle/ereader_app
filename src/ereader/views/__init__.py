@@ -10,5 +10,6 @@ This package contains:
 
 from ereader.views.book_viewer import BookViewer
 from ereader.views.main_window import MainWindow
+from ereader.views.navigation_bar import NavigationBar
 
-__all__ = ["BookViewer", "MainWindow"]
+__all__ = ["BookViewer", "MainWindow", "NavigationBar"]
