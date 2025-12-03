@@ -22,49 +22,44 @@ Display EPUB book content in a desktop window using PyQt6. This is the first use
 
 ## Technical Approach
 
-### Architecture (MVC Pattern)
+### Architecture Documentation
 
-**Model (already exists):**
-- `EPUBBook` class from `src/ereader/models/epub.py`
-- Provides: metadata, chapter list, chapter content
+**IMPORTANT:** Full architectural decisions and component designs are documented in:
+**[docs/architecture/epub-rendering-architecture.md](../architecture/epub-rendering-architecture.md)**
 
-**View (new):**
-- `MainWindow` - Top-level application window
-- `BookViewer` - Widget for displaying chapter content (QTextBrowser or QWebEngineView)
-- `NavigationBar` - Widget with next/prev controls
-- `StatusBar` - Shows book title, chapter, progress
+That document covers:
+- Widget choice (QTextBrowser vs QWebEngineView) - **Decision: QTextBrowser for MVP**
+- Complete MVC component structure with interfaces
+- Protocol-based abstraction for extensibility
+- Data flow and signals/slots design
+- State management strategy
+- Async strategy (synchronous for MVP, test first)
+- Error handling patterns
+- Performance optimization approach
 
-**Controller (new):**
-- `ReaderController` - Coordinates between EPUBBook model and UI views
-- Handles: file opening, chapter navigation, error handling
+### Quick Architecture Summary
+
+**Model (exists):** `EPUBBook` - Parse and serve chapter content
+**View (new):** `MainWindow`, `BookViewer`, `NavigationBar` - Display and user input
+**Controller (new):** `ReaderController` - Coordinate model and views, own state
+**Pattern:** Signals/Slots for loose coupling, Protocol-based interfaces for extensibility
+
+### Key Design Decisions (see architecture doc for details)
+
+1. **Rendering Widget**: QTextBrowser (lightweight, sufficient for most EPUBs)
+2. **State Management**: All state in controller (current book, chapter index)
+3. **Async**: Synchronous for MVP, add async only if performance testing shows need
+4. **Extensibility**: Protocol interfaces allow swapping implementations later
 
 ### PyQt6 Components to Learn
 
 1. **QApplication** - Application lifecycle
 2. **QMainWindow** - Top-level window with menu bar, status bar
-3. **QTextBrowser or QWebEngineView** - HTML rendering widget (choose based on EPUB needs)
+3. **QTextBrowser** - HTML rendering widget (Decision: Use this for MVP)
 4. **QFileDialog** - File selection
 5. **QPushButton** - Navigation buttons
 6. **QVBoxLayout/QHBoxLayout** - Layout management
 7. **Signals and Slots** - Event handling pattern
-
-### Rendering Decision: QTextBrowser vs QWebEngineView
-
-**QTextBrowser:**
-- ✅ Lightweight, built into QtWidgets
-- ✅ Supports basic HTML/CSS
-- ✅ Good for simple EPUBs
-- ❌ Limited CSS support
-- ❌ No JavaScript support
-
-**QWebEngineView:**
-- ✅ Full Chromium engine
-- ✅ Complete HTML5/CSS3 support
-- ✅ Handles complex EPUB layouts
-- ❌ Heavier dependency
-- ❌ More complex
-
-**Recommendation for MVP:** Start with **QTextBrowser** (simpler, lighter). Can upgrade to QWebEngineView later if needed.
 
 ## Implementation Tasks
 

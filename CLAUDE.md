@@ -408,6 +408,9 @@ Record architectural decisions here as they're made:
 | 2025-12-01 | Namespace fallback pattern | EPUBs use either `dc` or `dcterms` for metadata; fallback ensures compatibility | - |
 | 2025-12-02 | Encoding fallback: UTF-8 → latin-1 | Try UTF-8 first (modern standard), fall back to latin-1 (never fails) for older EPUBs | - |
 | 2025-12-02 | UI framework: PyQt6 | Aligns with learning goals (PyQt/UI from scratch), native HTML rendering for EPUB content, professional quality, marketable skill. Textual TUI deferred to future (Issue #16) | - |
+| 2025-12-03 | Rendering widget: QTextBrowser | Lightweight, simpler to learn, sufficient HTML/CSS support for most EPUBs. Can upgrade to QWebEngineView if needed. | docs/architecture/epub-rendering-architecture.md |
+| 2025-12-03 | MVC with Protocol abstraction | Controller owns state, views are stateless. Protocol interfaces enable swapping implementations (QTextBrowser → QWebEngineView). | docs/architecture/epub-rendering-architecture.md |
+| 2025-12-03 | Synchronous for MVP | No async until performance testing shows need. Simpler for learning, measure first before optimizing. | docs/architecture/epub-rendering-architecture.md |
 
 ## File Structure
 

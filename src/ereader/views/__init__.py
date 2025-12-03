@@ -7,3 +7,7 @@ This package contains:
 - Settings dialogs
 - UI widgets and helpers
 """
+
+from ereader.views.main_window import MainWindow
+
+__all__ = ["MainWindow"]
