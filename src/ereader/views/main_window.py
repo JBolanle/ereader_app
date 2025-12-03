@@ -6,7 +6,10 @@ as the container for all UI components.
 
 import logging
 
-from PyQt6.QtWidgets import QMainWindow
+from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
+
+from ereader.controllers.reader_controller import ReaderController
 
 logger = logging.getLogger(__name__)
 
@@ -28,4 +31,128 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("E-Reader")
         self.setGeometry(100, 100, 800, 600)  # x, y, width, height
 
+        # Create controller
+        self._controller = ReaderController()
+        self._setup_controller_connections()
+
+        # Setup UI components
+        self._setup_menu_bar()
+        self._setup_status_bar()
+
         logger.debug("MainWindow initialized successfully")
+
+    def _setup_menu_bar(self) -> None:
+        """Create and configure the menu bar."""
+        logger.debug("Setting up menu bar")
+
+        # Create File menu
+        menu_bar = self.menuBar()
+        if menu_bar is None:
+            logger.error("Failed to get menu bar")
+            return
+
+        file_menu = menu_bar.addMenu("&File")
+
+        # Add "Open" action
+        open_action = QAction("&Open...", self)
+        open_action.setShortcut("Ctrl+O")
+        open_action.setStatusTip("Open an EPUB file")
+        open_action.triggered.connect(self._handle_open_file)
+        file_menu.addAction(open_action)
+
+        # Add separator
+        file_menu.addSeparator()
+
+        # Add "Quit" action
+        quit_action = QAction("&Quit", self)
+        quit_action.setShortcut("Ctrl+Q")
+        quit_action.setStatusTip("Exit the application")
+        quit_action.triggered.connect(self.close)
+        file_menu.addAction(quit_action)
+
+        logger.debug("Menu bar setup complete")
+
+    def _setup_status_bar(self) -> None:
+        """Create and configure the status bar."""
+        logger.debug("Setting up status bar")
+        status_bar = self.statusBar()
+        if status_bar is not None:
+            status_bar.showMessage("Ready")
+        logger.debug("Status bar setup complete")
+
+    def _setup_controller_connections(self) -> None:
+        """Connect controller signals to view slots."""
+        logger.debug("Setting up controller signal connections")
+
+        self._controller.book_loaded.connect(self._on_book_loaded)
+        self._controller.error_occurred.connect(self._on_error)
+        self._controller.chapter_changed.connect(self._on_chapter_changed)
+
+        logger.debug("Controller connections established")
+
+    def _handle_open_file(self) -> None:
+        """Handle File > Open menu action.
+
+        Opens a file dialog to let the user select an EPUB file,
+        then passes the selected file to the controller.
+        """
+        logger.debug("Opening file dialog")
+
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open EPUB File",
+            "",  # Starting directory (empty = last used)
+            "EPUB Files (*.epub);;All Files (*)",
+        )
+
+        if filepath:
+            logger.info("User selected file: %s", filepath)
+            self._controller.open_book(filepath)
+        else:
+            logger.debug("User cancelled file selection")
+
+    def _on_book_loaded(self, title: str, author: str) -> None:
+        """Handle book_loaded signal from controller.
+
+        Updates the window title and status bar to show book information.
+
+        Args:
+            title: Book title.
+            author: Book author(s).
+        """
+        logger.debug("Book loaded: %s by %s", title, author)
+
+        # Update window title
+        self.setWindowTitle(f"{title} - E-Reader")
+
+        # Update status bar
+        status_bar = self.statusBar()
+        if status_bar is not None:
+            status_bar.showMessage(f"Opened: {title} by {author}")
+
+    def _on_chapter_changed(self, current: int, total: int) -> None:
+        """Handle chapter_changed signal from controller.
+
+        Updates the status bar to show current chapter position.
+
+        Args:
+            current: Current chapter number (1-based).
+            total: Total number of chapters.
+        """
+        logger.debug("Chapter changed: %d of %d", current, total)
+
+        status_bar = self.statusBar()
+        if status_bar is not None:
+            status_bar.showMessage(f"Chapter {current} of {total}")
+
+    def _on_error(self, title: str, message: str) -> None:
+        """Handle error_occurred signal from controller.
+
+        Displays an error dialog to the user.
+
+        Args:
+            title: Error dialog title.
+            message: Error message to display.
+        """
+        logger.debug("Showing error dialog: %s - %s", title, message)
+        QMessageBox.critical(self, title, message)
