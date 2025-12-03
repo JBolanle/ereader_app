@@ -583,12 +583,12 @@ This is professional-quality code:
 
 ### For Developer (Before Merge):
 
-- [ ] Add `QKeyEvent` type hint to `keyPressEvent` in navigation_bar.py
-- [ ] Update pyproject.toml to exclude views from coverage
-- [ ] Run full manual testing checklist
-- [ ] Consider refactoring BookViewer to use composition
-- [ ] Change logging level to INFO with env var override
-- [ ] Create Issue #19: "Add pytest-qt integration tests"
+- [x] Add `QKeyEvent` type hint to `keyPressEvent` in navigation_bar.py ✅
+- [x] Update pyproject.toml to exclude views from coverage ✅
+- [x] Consider refactoring BookViewer to use composition ✅
+- [x] Change logging level to INFO with env var override ✅
+- [x] Create Issue #19: "Add pytest-qt integration tests" ✅ (Created: #19)
+- [ ] Run full manual testing checklist (Checklist: `docs/testing/manual-testing-checklist-mvp.md`)
 - [ ] Update PR description to note coverage exception and manual testing
 
 ### For Reviewer:
