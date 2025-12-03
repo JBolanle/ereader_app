@@ -71,4 +71,5 @@ This summary is crucial for session continuity since context doesn't persist.
 Be thorough—future me will thank present me.
 
 ## Action Steps
-- After review, update the session notes and learning log if applicable. Ask if the user wants to make the changes to CLAUDE.md and then implement the change dependng on their answer.
+- After review, ask if the user would like to update the session notes and/or learning log if applicable. 
+- Ask if the user wants to make the changes to CLAUDE.md and then implement the change depending on their answer.
