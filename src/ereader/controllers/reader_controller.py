@@ -11,6 +11,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from ereader.exceptions import EReaderError
 from ereader.models.epub import EPUBBook
+from ereader.utils.cache import ChapterCache
 from ereader.utils.html_resources import resolve_images_in_html
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,9 @@ class ReaderController(QObject):
         self._book: EPUBBook | None = None
         self._current_chapter_index: int = 0
 
+        # Chapter caching for performance
+        self._chapter_cache = ChapterCache(maxsize=10)
+
         logger.debug("ReaderController initialized")
 
     def open_book(self, filepath: str) -> None:
@@ -72,6 +76,10 @@ class ReaderController(QObject):
 
             # Reset to first chapter
             self._current_chapter_index = 0
+
+            # Clear cache when opening a new book
+            self._chapter_cache.clear()
+            logger.debug("Chapter cache cleared for new book")
 
             # Get book metadata
             title = self._book.title
@@ -147,6 +155,7 @@ class ReaderController(QObject):
 
         Fetches the chapter content from the book model and emits signals
         to update the UI with the new content and navigation state.
+        Uses LRU cache to avoid re-rendering recently viewed chapters.
 
         Args:
             index: Zero-based chapter index to load.
@@ -158,19 +167,46 @@ class ReaderController(QObject):
         try:
             logger.debug("Loading chapter %d", index)
 
-            # Get chapter href and content
-            chapter_href = self._book.get_chapter_href(index)
-            content = self._book.get_chapter_content(index)
-            logger.debug(
-                "Chapter content loaded (href: %s, length: %d bytes)",
-                chapter_href,
-                len(content)
-            )
+            # Generate cache key
+            cache_key = f"{self._book.filepath}:{index}"
 
-            # Resolve image references in HTML
-            # Pass chapter href so images are resolved relative to the chapter file
-            content = resolve_images_in_html(content, self._book, chapter_href=chapter_href)
-            logger.debug("Image resources resolved, final length: %d bytes", len(content))
+            # Try cache first
+            cached_html = self._chapter_cache.get(cache_key)
+            if cached_html is not None:
+                logger.debug("Using cached chapter %d", index)
+                content = cached_html
+            else:
+                # Cache miss - render and store
+                logger.debug("Cache miss - rendering chapter %d", index)
+
+                # Get chapter href and content
+                chapter_href = self._book.get_chapter_href(index)
+                raw_content = self._book.get_chapter_content(index)
+                logger.debug(
+                    "Chapter content loaded (href: %s, length: %d bytes)",
+                    chapter_href,
+                    len(raw_content)
+                )
+
+                # Resolve image references in HTML
+                # Pass chapter href so images are resolved relative to the chapter file
+                content = resolve_images_in_html(raw_content, self._book, chapter_href=chapter_href)
+                logger.debug("Image resources resolved, final length: %d bytes", len(content))
+
+                # Store in cache
+                self._chapter_cache.set(cache_key, content)
+                logger.debug("Chapter %d cached", index)
+
+            # Log cache statistics
+            stats = self._chapter_cache.stats()
+            logger.debug(
+                "Cache stats: size=%d/%d, hits=%d, misses=%d, hit_rate=%.1f%%",
+                stats["size"],
+                stats["maxsize"],
+                stats["hits"],
+                stats["misses"],
+                stats["hit_rate"]
+            )
 
             # Emit content to views
             self.content_ready.emit(content)

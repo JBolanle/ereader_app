@@ -30,6 +30,7 @@ except ImportError:
     sys.exit(1)
 
 from ereader.models.epub import EPUBBook
+from ereader.utils.cache import ChapterCache
 from ereader.utils.html_resources import resolve_images_in_html
 
 # Configure logging
@@ -242,11 +243,101 @@ def profile_memory_over_time(book: EPUBBook, num_chapters: int = 20) -> dict[str
     return results
 
 
+def profile_caching_benefit(book: EPUBBook, num_chapters: int = 20) -> dict[str, Any]:
+    """Profile memory usage with caching enabled.
+
+    Simulates realistic reading patterns to measure cache effectiveness.
+
+    Args:
+        book: The EPUBBook instance.
+        num_chapters: Number of chapters to load in reading pattern.
+
+    Returns:
+        Dictionary with caching profiling results.
+    """
+    chapter_count = book.get_chapter_count()
+    num_chapters = min(num_chapters, chapter_count)
+
+    # Initialize cache
+    cache = ChapterCache(maxsize=10)
+
+    results: dict[str, Any] = {
+        "chapters_accessed": 0,
+        "cache_hits": 0,
+        "cache_misses": 0,
+        "memory_snapshots_mb": [],
+    }
+
+    # Take initial memory snapshot
+    gc.collect()
+    results["memory_snapshots_mb"].append(get_memory_usage())
+
+    # Simulate realistic reading pattern:
+    # - Read forward through chapters
+    # - Occasionally go back to review previous chapter
+    for idx in range(num_chapters):
+        try:
+            # Generate cache key
+            cache_key = f"{book.filepath}:{idx}"
+            results["chapters_accessed"] += 1
+
+            # Try cache first
+            cached_html = cache.get(cache_key)
+            if cached_html is not None:
+                results["cache_hits"] += 1
+                # Use cached content (just access it)
+                _ = cached_html
+            else:
+                results["cache_misses"] += 1
+                # Cache miss - render and store
+                chapter_href = book.get_chapter_href(idx)
+                content = book.get_chapter_content(idx)
+                rendered = resolve_images_in_html(content, book, chapter_href=chapter_href)
+                cache.set(cache_key, rendered)
+
+            # Take memory snapshot
+            results["memory_snapshots_mb"].append(get_memory_usage())
+
+            # Occasionally go back one chapter (simulates review reading)
+            if idx > 0 and idx % 5 == 0:
+                prev_idx = idx - 1
+                prev_key = f"{book.filepath}:{prev_idx}"
+                results["chapters_accessed"] += 1
+
+                # This should be a cache hit
+                cached = cache.get(prev_key)
+                if cached is not None:
+                    results["cache_hits"] += 1
+                else:
+                    results["cache_misses"] += 1
+
+        except Exception as e:
+            logger.warning("Error loading chapter %d: %s", idx, e)
+
+    # Calculate statistics
+    snapshots = results["memory_snapshots_mb"]
+    results["min_memory_mb"] = min(snapshots)
+    results["max_memory_mb"] = max(snapshots)
+    results["avg_memory_mb"] = sum(snapshots) / len(snapshots)
+    results["memory_growth_mb"] = snapshots[-1] - snapshots[0]
+
+    # Calculate hit rate
+    total_accesses = results["cache_hits"] + results["cache_misses"]
+    results["hit_rate_percent"] = (results["cache_hits"] / total_accesses * 100) if total_accesses > 0 else 0.0
+
+    # Get final cache stats
+    cache_stats = cache.stats()
+    results["cache_stats"] = cache_stats
+
+    return results
+
+
 def generate_report(
     epub_results: dict[str, Any],
     chapter_results: dict[str, Any],
     image_results: dict[str, Any],
     memory_results: dict[str, Any],
+    cache_results: dict[str, Any] | None = None,
 ) -> str:
     """Generate a formatted performance report.
 
@@ -328,6 +419,36 @@ def generate_report(
     report.append(f"Target Check (< 200MB max): {memory_status}")
     report.append("")
 
+    # Caching Performance (if available)
+    if cache_results:
+        report.append("## Caching Performance")
+        report.append(f"Chapters Accessed: {cache_results['chapters_accessed']}")
+        report.append(f"Cache Hits: {cache_results['cache_hits']}")
+        report.append(f"Cache Misses: {cache_results['cache_misses']}")
+        report.append(f"Hit Rate: {cache_results['hit_rate_percent']:.1f}%")
+        report.append("")
+        report.append(f"Min Memory: {cache_results['min_memory_mb']:.2f} MB")
+        report.append(f"Max Memory: {cache_results['max_memory_mb']:.2f} MB")
+        report.append(f"Avg Memory: {cache_results['avg_memory_mb']:.2f} MB")
+        report.append(f"Memory Growth: {cache_results['memory_growth_mb']:.2f} MB")
+        report.append("")
+
+        # Compare with non-cached version
+        memory_improvement = memory_results['max_memory_mb'] - cache_results['max_memory_mb']
+        improvement_percent = (memory_improvement / memory_results['max_memory_mb'] * 100) if memory_results['max_memory_mb'] > 0 else 0
+
+        report.append("## Caching Impact")
+        report.append(f"Memory Without Cache: {memory_results['max_memory_mb']:.2f} MB")
+        report.append(f"Memory With Cache: {cache_results['max_memory_mb']:.2f} MB")
+        report.append(f"Memory Reduction: {memory_improvement:.2f} MB ({improvement_percent:.1f}% improvement)")
+        report.append("")
+
+        cache_status = "✅ EFFECTIVE" if cache_results['hit_rate_percent'] > 50 else "⚠️  LOW HIT RATE"
+        memory_cache_status = "✅ PASS" if cache_results['max_memory_mb'] < 200 else "⚠️  HIGH"
+        report.append(f"Cache Effectiveness: {cache_status}")
+        report.append(f"Target Check (< 200MB max with cache): {memory_cache_status}")
+        report.append("")
+
     # Overall Assessment
     report.append("=" * 80)
     report.append("## Overall Assessment")
@@ -397,12 +518,15 @@ def main() -> None:
     logger.info("Phase 4: Profiling memory usage over time...")
     memory_results = profile_memory_over_time(book, num_chapters=20)
 
+    logger.info("Phase 5: Profiling caching benefit...")
+    cache_results = profile_caching_benefit(book, num_chapters=20)
+
     logger.info("")
     logger.info("Generating report...")
     logger.info("")
 
     # Generate report
-    report = generate_report(epub_results, chapter_results, image_results, memory_results)
+    report = generate_report(epub_results, chapter_results, image_results, memory_results, cache_results)
 
     # Output report
     if args.output:
