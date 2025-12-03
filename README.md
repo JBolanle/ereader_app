@@ -13,15 +13,15 @@ This project serves dual purposes:
 ### Current Progress
 
 - [x] Core architecture setup (MVC pattern, exception handling)
-- [x] Test infrastructure established (40 passing tests)
+- [x] Test infrastructure established (comprehensive test suite)
 - [x] EPUB parsing complete
   - [x] Metadata extraction (title, author, language)
   - [x] Manifest and spine parsing (file structure, reading order)
   - [x] Chapter content reading (with UTF-8/latin-1 encoding support)
-- [ ] EPUB error handling improvements (issue #6)
-- [ ] Integration testing with real EPUBs (issue #7)
-- [ ] EPUB rendering engine
-- [ ] UI framework selection (deferred - learning parsing first)
+  - [x] Error handling for non-EPUB and corrupted files (PR #14)
+  - [x] Integration testing with real EPUB files (PR #15)
+- [ ] **Next up**: EPUB rendering engine (text display)
+- [ ] UI framework selection and setup
 
 See [CLAUDE.md](CLAUDE.md) for detailed development context and current sprint.
 

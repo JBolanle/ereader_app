@@ -295,7 +295,6 @@ These things I must implement myself (for learning):
 ## Current Sprint
 
 - [x] Project initialization
-- [ ] UI framework decision (deferred - learning parsing first)
 - [x] EPUB parsing learning (COMPLETED)
   - [x] Understand EPUB structure (ZIP-based format)
   - [x] ZIP file handling with Python's zipfile module
@@ -309,10 +308,15 @@ These things I must implement myself (for learning):
   - [x] Exception module created
   - [x] Test structure established
   - [x] Architecture documented
-- [ ] Remaining EPUB tasks
-  - [ ] Error handling improvements (Issue #6)
-  - [ ] Integration testing with real EPUBs (Issue #7)
-- [ ] EPUB rendering MVP
+- [x] EPUB error handling (COMPLETED - PR #14)
+  - [x] Error handling tests for non-EPUB files
+  - [x] Error handling tests for corrupted files
+- [x] EPUB integration testing (COMPLETED - PR #15)
+  - [x] Integration tests with real EPUB files
+  - [x] Test complete reading workflow
+- [ ] Next steps
+  - [ ] EPUB rendering MVP (text display)
+  - [ ] UI framework decision and setup
 
 ## Decisions Log
 
