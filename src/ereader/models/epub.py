@@ -5,6 +5,7 @@ EPUBs are ZIP archives containing structured content in XML and XHTML formats.
 """
 
 import logging
+import posixpath
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
@@ -352,4 +353,60 @@ class EPUBBook:
             logger.error("Chapter file not found in EPUB: %s", full_path)
             raise CorruptedEPUBError(
                 f"Chapter file {full_path} not found in EPUB (referenced by item {item_id})"
+            ) from None
+
+    def get_resource(self, resource_href: str) -> bytes:
+        """Get a resource (image, CSS, font, etc.) from the EPUB by its href.
+
+        Resources in EPUB HTML content use relative paths (e.g., "images/cover.jpg").
+        This method resolves the path relative to the OPF file location and extracts
+        the resource from the EPUB ZIP archive.
+
+        Args:
+            resource_href: Relative href of the resource as referenced in HTML/XHTML content.
+                          Examples: "images/cover.jpg", "../styles/main.css"
+
+        Returns:
+            Raw bytes of the resource file.
+
+        Raises:
+            CorruptedEPUBError: If the resource file is not found in the EPUB.
+
+        Example:
+            >>> book = EPUBBook("book.epub")
+            >>> image_data = book.get_resource("images/cover.jpg")
+            >>> # Can be used to create data URLs or save to disk
+        """
+        logger.debug("Retrieving resource: %s", resource_href)
+
+        # Resolve the full path within the EPUB
+        # Resource hrefs are relative to the OPF file location
+        opf_path = self._get_opf_path()
+        opf_dir = str(Path(opf_path).parent)
+
+        # Build the full path within the ZIP
+        if opf_dir and opf_dir != ".":
+            full_path = f"{opf_dir}/{resource_href}"
+        else:
+            full_path = resource_href
+
+        # Normalize path to resolve any ../ references
+        # Using posixpath since EPUB paths always use forward slashes
+        full_path = posixpath.normpath(full_path)
+
+        logger.debug("Resolved resource path in EPUB: %s", full_path)
+
+        # Read the resource from the ZIP
+        try:
+            with zipfile.ZipFile(self.filepath) as zf:
+                resource_bytes = zf.read(full_path)
+                logger.debug(
+                    "Successfully read resource %s (%d bytes)", resource_href, len(resource_bytes)
+                )
+                return resource_bytes
+
+        except KeyError:
+            logger.error("Resource file not found in EPUB: %s", full_path)
+            raise CorruptedEPUBError(
+                f"Resource file {full_path} not found in EPUB"
             ) from None

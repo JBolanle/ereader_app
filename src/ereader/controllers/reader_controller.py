@@ -11,6 +11,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from ereader.exceptions import EReaderError
 from ereader.models.epub import EPUBBook
+from ereader.utils.html_resources import resolve_images_in_html
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,10 @@ class ReaderController(QObject):
             # Get chapter content
             content = self._book.get_chapter_content(index)
             logger.debug("Chapter content loaded, length: %d bytes", len(content))
+
+            # Resolve image references in HTML
+            content = resolve_images_in_html(content, self._book)
+            logger.debug("Image resources resolved, final length: %d bytes", len(content))
 
             # Emit content to views
             self.content_ready.emit(content)
