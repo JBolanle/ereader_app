@@ -231,9 +231,9 @@ Before requesting review:
 ## Target Features (Priority Order)
 
 ### Core (MVP)
-1. [ ] Open and render EPUB files
-2. [ ] Page/chapter navigation
-3. [ ] Reading progress tracking
+1. [x] Open and render EPUB files (COMPLETED - PR #22)
+2. [x] Page/chapter navigation (COMPLETED - PR #22)
+3. [x] Reading progress tracking (COMPLETED - PR #22)
 4. [ ] Basic reading themes (light/dark)
 
 ### Important
@@ -390,10 +390,20 @@ These things I must implement myself (for learning):
 - [x] EPUB integration testing (COMPLETED - PR #15)
   - [x] Integration tests with real EPUB files
   - [x] Test complete reading workflow
+- [x] EPUB rendering MVP (COMPLETED - PR #22) 🎉
+  - [x] EPUB rendering architecture (Issue #17)
+  - [x] EPUB rendering MVP implementation (Issue #18)
+  - [x] PyQt6 learning and UI development
+  - [x] MVC architecture with Protocol abstraction
+  - [x] Full chapter navigation and error handling
+  - [x] 96% test coverage (82 tests)
+  - [x] Comprehensive manual testing
 - [ ] Next steps
-  - [ ] EPUB rendering architecture (Issue #17)
-  - [ ] EPUB rendering MVP implementation (Issue #18)
-  - [ ] PyQt6 learning and UI development
+  - [ ] Image rendering support (Issue #20)
+  - [ ] Arrow key navigation (Issue #21)
+  - [ ] Basic reading themes (light/dark mode)
+  - [ ] Bookmarks feature
+  - [ ] PDF support
 
 ## Decisions Log
 
