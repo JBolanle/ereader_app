@@ -379,7 +379,7 @@ ereader-app/
 | Command | Purpose |
 |---------|---------|
 | `/architect` | Make architectural decisions; design component interfaces |
-| `/pm` | Product management; prioritize features and plan work |
+| `/pm` | Product management and workflow orchestration; guides you through the development lifecycle |
 
 ### Code Quality
 | Command | Purpose |
