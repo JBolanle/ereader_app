@@ -1130,3 +1130,252 @@ class TestEPUBChapterContent:
         content = book.get_chapter_content(0)
 
         assert content == chapter_content
+
+
+class TestGetResource:
+    """Test EPUBBook.get_resource() method for retrieving images and other resources."""
+
+    def test_get_resource_simple_image(self, tmp_path: Path) -> None:
+        """Test retrieving a simple image resource from EPUB."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+<item id="img1" href="images/cover.jpg" media-type="image/jpeg"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        # Create fake image data
+        image_data = b"\xff\xd8\xff\xe0\x00\x10JFIF"  # JPEG header
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+            zf.writestr("OEBPS/chapter1.xhtml", "<html></html>")
+            zf.writestr("OEBPS/images/cover.jpg", image_data)
+
+        book = EPUBBook(epub_file)
+        retrieved_data = book.get_resource("images/cover.jpg")
+
+        assert retrieved_data == image_data
+
+    def test_get_resource_from_root_level(self, tmp_path: Path) -> None:
+        """Test retrieving resource when OPF is at root level."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+<item id="img1" href="cover.png" media-type="image/png"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        image_data = b"\x89PNG\r\n\x1a\n"  # PNG header
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("content.opf", opf_xml)
+            zf.writestr("chapter1.xhtml", "<html></html>")
+            zf.writestr("cover.png", image_data)
+
+        book = EPUBBook(epub_file)
+        retrieved_data = book.get_resource("cover.png")
+
+        assert retrieved_data == image_data
+
+    def test_get_resource_with_parent_directory_reference(self, tmp_path: Path) -> None:
+        """Test retrieving resource with ../ path reference."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="text/chapter1.xhtml" media-type="application/xhtml+xml"/>
+<item id="img1" href="../images/photo.jpg" media-type="image/jpeg"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        image_data = b"fake image data"
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content/content.opf", opf_xml)
+            zf.writestr("OEBPS/content/text/chapter1.xhtml", "<html></html>")
+            zf.writestr("OEBPS/images/photo.jpg", image_data)
+
+        book = EPUBBook(epub_file)
+        # OPF is at OEBPS/content/, image reference ../images/photo.jpg resolves to OEBPS/images/photo.jpg
+        retrieved_data = book.get_resource("../images/photo.jpg")
+
+        assert retrieved_data == image_data
+
+    def test_get_resource_not_found_raises_error(self, tmp_path: Path) -> None:
+        """Test that missing resource raises CorruptedEPUBError."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+            zf.writestr("OEBPS/chapter1.xhtml", "<html></html>")
+
+        book = EPUBBook(epub_file)
+
+        with pytest.raises(CorruptedEPUBError) as exc_info:
+            book.get_resource("images/nonexistent.jpg")
+
+        assert "not found" in str(exc_info.value).lower()
+
+    def test_get_resource_different_image_formats(self, tmp_path: Path) -> None:
+        """Test retrieving different image format resources (PNG, JPG, GIF, SVG)."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+<item id="img1" href="images/photo.jpg" media-type="image/jpeg"/>
+<item id="img2" href="images/diagram.png" media-type="image/png"/>
+<item id="img3" href="images/animation.gif" media-type="image/gif"/>
+<item id="img4" href="images/vector.svg" media-type="image/svg+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        jpg_data = b"\xff\xd8\xff\xe0"
+        png_data = b"\x89PNG\r\n\x1a\n"
+        gif_data = b"GIF89a"
+        svg_data = b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+            zf.writestr("OEBPS/chapter1.xhtml", "<html></html>")
+            zf.writestr("OEBPS/images/photo.jpg", jpg_data)
+            zf.writestr("OEBPS/images/diagram.png", png_data)
+            zf.writestr("OEBPS/images/animation.gif", gif_data)
+            zf.writestr("OEBPS/images/vector.svg", svg_data)
+
+        book = EPUBBook(epub_file)
+
+        assert book.get_resource("images/photo.jpg") == jpg_data
+        assert book.get_resource("images/diagram.png") == png_data
+        assert book.get_resource("images/animation.gif") == gif_data
+        assert book.get_resource("images/vector.svg") == svg_data
+
+    def test_get_resource_with_nested_directories(self, tmp_path: Path) -> None:
+        """Test retrieving resources from deeply nested directory structures."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+<item id="img1" href="assets/images/chapter1/figure1.png" media-type="image/png"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        image_data = b"nested image data"
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+            zf.writestr("OEBPS/chapter1.xhtml", "<html></html>")
+            zf.writestr("OEBPS/assets/images/chapter1/figure1.png", image_data)
+
+        book = EPUBBook(epub_file)
+        retrieved_data = book.get_resource("assets/images/chapter1/figure1.png")
+
+        assert retrieved_data == image_data
