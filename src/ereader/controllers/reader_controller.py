@@ -158,12 +158,18 @@ class ReaderController(QObject):
         try:
             logger.debug("Loading chapter %d", index)
 
-            # Get chapter content
+            # Get chapter href and content
+            chapter_href = self._book.get_chapter_href(index)
             content = self._book.get_chapter_content(index)
-            logger.debug("Chapter content loaded, length: %d bytes", len(content))
+            logger.debug(
+                "Chapter content loaded (href: %s, length: %d bytes)",
+                chapter_href,
+                len(content)
+            )
 
             # Resolve image references in HTML
-            content = resolve_images_in_html(content, self._book)
+            # Pass chapter href so images are resolved relative to the chapter file
+            content = resolve_images_in_html(content, self._book, chapter_href=chapter_href)
             logger.debug("Image resources resolved, final length: %d bytes", len(content))
 
             # Emit content to views
