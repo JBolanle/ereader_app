@@ -7,8 +7,8 @@ Help me open a well-documented pull request using GitHub CLI.
 **From CLAUDE.md - Pull Request Requirements:**
 
 Before requesting review:
-- [ ] All tests pass (`uv run pytest`)
-- [ ] Linting passes (`uv run ruff check src/`)
+- [ ] `/test` passes (all tests + coverage 80%+ + linting)
+- [ ] `/code-review` completed and issues addressed
 - [ ] Changes are documented (docstrings, comments)
 - [ ] Breaking changes noted in PR description
 - [ ] Related issue linked (Closes #123)
@@ -22,11 +22,8 @@ git branch --show-current
 # Is everything committed?
 git status
 
-# Do tests pass?
-uv run pytest
-
-# Does linting pass?
-uv run ruff check src/
+# Run quality checks (or use /test command)
+/test
 
 # Push the branch if not already pushed
 git push -u origin $(git branch --show-current)
@@ -112,8 +109,8 @@ Closes #[issue number]
 - [ ] Manual testing performed
 
 ## Quality Checklist (from CLAUDE.md)
-- [ ] All tests pass (`uv run pytest`)
-- [ ] Linting passes (`uv run ruff check src/`)
+- [ ] `/test` passes (tests + coverage 80%+ + linting)
+- [ ] `/code-review` completed with no blocking issues
 - [ ] Type hints on all new functions
 - [ ] Docstrings on all new public functions
 - [ ] No print() statements (using logging)

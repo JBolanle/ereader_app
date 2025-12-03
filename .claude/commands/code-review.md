@@ -16,6 +16,17 @@ Before providing feedback, think carefully through:
 
 Be thorough. A good review catches issues before they reach production.
 
+## Prerequisites
+
+Before starting the review, run `/test` to ensure quality checks pass:
+
+**IMPORTANT:** Invoke the `/test` command now to verify:
+- All tests pass
+- Coverage is acceptable (80%+)
+- No linting errors
+
+Do not proceed with review if tests fail or coverage is below threshold. Fix issues first.
+
 ## Review the Current Branch
 
 ```bash
@@ -56,9 +67,13 @@ git diff main...HEAD
 - Resources properly managed (files closed, etc.)?
 
 ### 6. Testing
-- Adequate test coverage?
-- Edge cases tested?
+- /test passed with acceptable coverage (80%+)?
+- Are tests testing the right things (meaningful coverage)?
+- Edge cases appropriately tested based on risk?
 - Tests are clear and maintainable?
+- Test quality matches professional standards?
+
+Note: Use /test output to inform this section. Focus on test quality and completeness, not just coverage percentage.
 
 ### 7. Security
 - Input validation where needed?

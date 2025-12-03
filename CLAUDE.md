@@ -11,9 +11,11 @@ This project serves dual purposes:
 ## Quick Command Reference
 
 ### Running Tests & Quality Checks
+- **Quick test run**: `/test` (recommended - runs tests + coverage + linting)
 - Run all tests: `uv run pytest`
 - Run specific test: `uv run pytest tests/test_models/test_book.py`
-- Run with coverage: `uv run pytest --cov=src/ereader`
+- Run with coverage: `uv run pytest --cov=src/ereader --cov-report=term-missing`
+- Coverage with threshold: `uv run pytest --cov=src/ereader --cov-fail-under=80`
 - Run linter: `uv run ruff check src/`
 - Auto-fix linting: `uv run ruff check --fix src/`
 - Type checking: `uv run mypy src/` (when enabled)
@@ -76,8 +78,11 @@ CRITICAL - These rules are non-negotiable for code quality:
 **Testing:**
 - EVERY new function must have at least one test
 - Tests go in `tests/` mirroring the `src/` structure
-- Run tests before committing: `uv run pytest`
+- Run `/test` frequently during development (not just before commits)
 - Test both happy path and edge cases
+- Maintain minimum 80% code coverage (target: 90%+)
+- Focus on meaningful coverage, not just hitting percentages
+- Professional standard: test critical paths thoroughly, edge cases appropriately
 
 **Code Style:**
 - NEVER use `print()` — use logging instead
@@ -107,6 +112,77 @@ CRITICAL - These rules are non-negotiable for code quality:
 - Comprehensive error handling with custom exceptions
 - Logging instead of print statements
 - Conventional commits for git messages
+
+## Test Coverage Standards
+
+Maintain professional-grade test coverage using these guidelines:
+
+### Coverage Thresholds
+- **Minimum**: 80% (enforced in tests)
+- **Target**: 90%+ (professional standard)
+- **Trend**: Coverage should never decrease without good reason
+
+### Coverage Quality Over Quantity
+Focus on **meaningful coverage**, not just hitting percentages:
+
+✅ **Always Test:**
+- User-facing features and critical paths
+- Data integrity operations (file I/O, parsing, etc.)
+- Error handling for common scenarios
+- Public APIs and interfaces
+- Business logic and algorithms
+
+🟡 **Test When Practical:**
+- Edge cases with moderate probability
+- Error handling for uncommon scenarios
+- Internal helper functions used in critical paths
+
+⚪ **Document and Defer:**
+- Defensive logging and warnings
+- Error handling for malformed/corrupted data (requires extensive mocking)
+- Edge cases with very low probability
+- Code that would require disproportionate effort to test
+
+### Using the `/test` Command
+
+Run `/test` frequently during development:
+- **During coding**: After implementing a feature or fixing a bug
+- **Before committing**: Ensure all quality checks pass
+- **After refactoring**: Verify nothing broke
+
+The `/test` command runs:
+1. Full test suite with coverage reporting
+2. Coverage analysis against 80% threshold
+3. Linting checks (ruff)
+4. Detailed reporting on what's tested and what isn't
+
+### Evaluating Coverage Gaps
+
+When `/test` shows missing coverage, ask:
+
+1. **Is this critical?** (User-facing or data integrity)
+   - Yes → Write tests immediately
+   - No → Continue evaluation
+
+2. **What's the risk if it has bugs?**
+   - High → Write tests
+   - Low → Document and defer
+
+3. **What's the effort to test?**
+   - Low → Just write the test
+   - High → Weigh effort vs. risk
+
+4. **Is it defensive code?** (Logging, malformed input handling)
+   - Yes → Usually safe to defer
+
+### Professional Standard
+
+This project follows professional software engineering practices:
+- Coverage is a quality metric, not a goal
+- Test what matters to users and system integrity
+- Document why certain code isn't tested
+- Monitor coverage trends (don't let it drop)
+- Add tests when bugs are found (test-driven bug fixing)
 
 ## Repository Etiquette
 
@@ -140,9 +216,9 @@ type(scope): brief description
 
 ### Pull Request Requirements
 Before requesting review:
-- [ ] All tests pass (`uv run pytest`)
-- [ ] Linting passes (`uv run ruff check src/`)
+- [ ] `/test` passes (tests + coverage 80%+ + linting)
 - [ ] Changes are documented (docstrings, comments)
+- [ ] `/code-review` feedback addressed
 - [ ] Breaking changes noted in PR description
 - [ ] Related issue linked (Closes #123)
 
@@ -212,14 +288,14 @@ Before requesting review:
 
 3. **Code (implement the solution)**
    - Implement following the plan and code standards
-   - Run tests frequently during development
+   - Run `/test` frequently during development
    - Commit related changes together
 
 4. **Review & Commit (ensure quality)**
-   - Run full test suite and linting
+   - Run `/test` to verify all quality checks pass
    - Self-review with `/code-review`
-   - Write clear conventional commit message
-   - Push and create PR when ready
+   - Write clear conventional commit message with `/commit`
+   - Push and create PR with `/pr` when ready
 
 ### Pattern 2: Test-Driven Development (TDD)
 **Use for:** Clear input/output specifications, bug fixes, core algorithms
@@ -227,18 +303,18 @@ Before requesting review:
 1. **Write failing tests first**
    - Write tests for functionality that doesn't exist yet
    - Cover happy path, edge cases, and error conditions
-   - Run tests to confirm they fail appropriately
+   - Run `/test` to confirm tests fail appropriately
    - Commit tests: `test: add tests for [feature]`
 
 2. **Implement to pass tests**
    - Write simplest code that makes tests pass
-   - Run tests after each small change
+   - Run `/test` after each small change
    - Iterate until all tests pass
    - DO NOT modify tests unless they have bugs
 
 3. **Refactor with safety**
    - Improve code quality while keeping tests green
-   - Run tests after each refactor
+   - Run `/test` after each refactor
    - Commit: `feat: implement [feature]`
 
 ### Pattern 3: Visual Iteration (UI/UX work)
@@ -383,9 +459,10 @@ ereader-app/
 | `/architect` | Make architectural decisions; design component interfaces |
 | `/pm` | Product management and workflow orchestration; guides you through the development lifecycle |
 
-### Code Quality
+### Code Quality & Testing
 | Command | Purpose |
 |---------|---------|
+| `/test` | Run tests with coverage analysis and linting (use frequently!) |
 | `/code-review` | Review code quality before committing or creating PR |
 
 ### Version Control (Git)

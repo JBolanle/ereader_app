@@ -352,7 +352,8 @@ As PM, help users navigate the command ecosystem by recommending appropriate com
 - `/debug` - When you have errors or bugs to fix
 - `/architect` - When you need to design component structure or make architectural decisions
 
-### Code Quality & Review
+### Code Quality & Testing
+- `/test` - Run tests with coverage analysis and linting (use frequently!)
 - `/code-review` - Before creating PR or when you want quality feedback
 
 ### Version Control
@@ -379,8 +380,9 @@ As PM, help users navigate the command ecosystem by recommending appropriate com
 | Learning new concept | `/study` or `/mentor` first, then implementation |
 | Stuck on implementation | `/hint` if want to figure it out, `/mentor` if need explanation |
 | Bug in code | `/debug` |
-| Ready to commit | `/code-review` → `/commit` |
-| Ready for PR | `/pr` |
+| During development | `/test` frequently to verify quality |
+| Ready to commit | `/test` → `/code-review` → `/commit` |
+| Ready for PR | `/test` → `/code-review` → `/pr` |
 | Want to test knowledge | `/quiz` |
 | End of session | `/wrapup` |
 | Check project status | Stay in `/pm` |

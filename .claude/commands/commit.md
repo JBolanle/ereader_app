@@ -7,8 +7,7 @@ Read CLAUDE.md for project context and Repository Etiquette.
 ## Before You Start
 
 **CRITICAL - Pre-commit checklist:**
-- [ ] All tests pass: `uv run pytest`
-- [ ] Linting passes: `uv run ruff check src/`
+- [ ] Run `/test` to verify all tests pass, coverage meets threshold (80%+), and linting passes
 - [ ] Changes are logically one commit (atomic)
 - [ ] No debug code, print statements, or personal notes included
 
@@ -151,8 +150,7 @@ Refs #456
 ## Quality Checklist
 
 Before committing, verify:
-- [ ] Tests pass (`uv run pytest`)
-- [ ] Linting passes (`uv run ruff check src/`)
+- [ ] `/test` passes (tests + coverage 80%+ + linting)
 - [ ] Type hints on all new functions
 - [ ] Docstrings on all new public functions
 - [ ] No print() statements (use logging)

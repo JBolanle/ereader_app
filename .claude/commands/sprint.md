@@ -11,7 +11,7 @@ Feature name or description from CLAUDE.md's target features list.
 
 ## Phase 1: Specification
 
-Act as PM:
+Invoke the `/pm` command in Plan mode to:
 - Write a detailed spec for the feature
 - Save to docs/specs/[feature-name].md
 - Create GitHub issues for each task
@@ -20,7 +20,7 @@ Act as PM:
 
 ## Phase 2: Architecture (If Needed)
 
-Act as Architect:
+Invoke the `/architect` command to:
 - Determine if new components or patterns are needed
 - If yes, design them and document in docs/architecture/
 - Update CLAUDE.md with any new patterns
@@ -29,9 +29,9 @@ Act as Architect:
 
 ## Phase 3: Implementation
 
-Act as Developer:
-- Work through each issue in logical order
-- Create feature branches for each
+For each issue, invoke the `/developer` command to:
+- Work through the issue in logical order
+- Create feature branch
 - Implement with tests
 - Commit and push
 
@@ -39,7 +39,7 @@ Act as Developer:
 
 ## Phase 4: Review
 
-Act as Reviewer:
+Invoke the `/code-review` command to:
 - Review all changes against main
 - Document feedback in docs/reviews/
 - List any issues that need fixing
@@ -48,8 +48,8 @@ Act as Reviewer:
 
 ## Phase 5: Completion
 
-- Fix any review issues
-- Open PR with full description:
+- If issues found, invoke `/developer` to fix them
+- Invoke `/pr` to open PR with full description:
   - Summary of changes
   - Link to spec
   - List of issues closed

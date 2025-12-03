@@ -12,11 +12,12 @@ Read CLAUDE.md for project context and code standards.
 4. Create a feature branch: `git checkout -b feature/[short-description]`
 5. Implement following the code standards in CLAUDE.md
 6. Write tests in tests/ mirroring the src/ structure
-7. Run tests: `uv run pytest`
-8. Run linting: `uv run ruff check src/`
-9. Commit with a clear conventional commit message
-10. Use a subagent to perform a self-assessment with `/code-review` and implement all required changes. Make sure there is a document written to `docs/reviews` as outlined in `code-review.md`
-11. Push the branch: `git push -u origin [branch-name]`
+7. Invoke `/test` to verify tests pass and coverage is acceptable
+8. Fix any failing tests or linting issues
+9. Invoke `/test` again to confirm all checks pass
+10. Commit with a clear conventional commit message
+11. Use a subagent to invoke `/code-review` and implement all required changes. Make sure there is a document written to `docs/reviews` as outlined in `code-review.md`
+12. Push the branch: `git push -u origin [branch-name]`
 
 **Do not open a PR yet—wait for review instructions.**
 
@@ -42,12 +43,12 @@ Use **Explore → Plan → Code → Commit** pattern:
 
 **Implementation Phase:**
 - Follow the plan and code standards below
-- Test incrementally as you build
+- Test incrementally as you build: invoke `/test` frequently
 - Make small commits for logical chunks
 
 **Review Phase:**
-- Run full test suite and linting
-- Use `/code-review` for self-assessment
+- Invoke `/test` to verify all quality checks pass
+- Invoke `/code-review` for self-assessment
 - Write clear commit messages
 
 ### For Test-Driven Development
@@ -55,14 +56,15 @@ When working on features with clear input/output specifications:
 
 1. **Write tests first** (before implementation)
    - Cover happy path, edge cases, error cases
+   - Invoke `/test` to verify tests fail appropriately
    - Commit tests: `test: add tests for [feature]`
 2. **Implement to pass tests**
    - Write simplest code that works
-   - Iterate: code → test → adjust
-   - DO NOT modify tests
+   - Iterate: code → invoke `/test` → adjust
+   - DO NOT modify tests (unless they have bugs)
 3. **Refactor when tests pass**
    - Improve code quality
-   - Keep tests passing
+   - Invoke `/test` after each refactor to ensure tests still pass
    - Commit: `feat: implement [feature]`
 
 ## Code Standards (from CLAUDE.md)
