@@ -6,7 +6,6 @@ and orchestrates the flow of data between model and views.
 """
 
 import logging
-from pathlib import Path
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
