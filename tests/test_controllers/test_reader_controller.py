@@ -5,12 +5,12 @@ the EPUBBook model and UI views. Tests use mocks to isolate the controller
 logic from the actual book parsing and UI components.
 """
 
-import pytest
 from unittest.mock import MagicMock, Mock, patch
+
 from PyQt6.QtCore import QObject
 
 from ereader.controllers.reader_controller import ReaderController
-from ereader.exceptions import InvalidEPUBError, CorruptedEPUBError
+from ereader.exceptions import CorruptedEPUBError, InvalidEPUBError
 
 
 class TestReaderControllerInit:

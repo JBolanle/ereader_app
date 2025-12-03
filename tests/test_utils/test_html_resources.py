@@ -2,11 +2,7 @@
 
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock
 
-import pytest
-
-from ereader.exceptions import CorruptedEPUBError
 from ereader.models.epub import EPUBBook
 from ereader.utils.html_resources import resolve_images_in_html
 
