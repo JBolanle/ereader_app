@@ -41,6 +41,9 @@ class BookViewer(QTextBrowser):
         # Set default styling for readability
         self._setup_default_style()
 
+        # Show welcome message
+        self._show_welcome_message()
+
         logger.debug("BookViewer initialized")
 
     def _setup_default_style(self) -> None:
@@ -62,6 +65,19 @@ class BookViewer(QTextBrowser):
         """)
 
         logger.debug("Default style applied")
+
+    def _show_welcome_message(self) -> None:
+        """Display a welcome message when no book is loaded."""
+        welcome_html = """
+        <html>
+        <body style="text-align: center; padding-top: 100px; font-family: sans-serif;">
+            <h1>Welcome to E-Reader</h1>
+            <p style="color: gray;">Open an EPUB file to start reading</p>
+            <p style="color: gray; font-size: 0.9em;">File → Open (Ctrl+O)</p>
+        </body>
+        </html>
+        """
+        self.setHtml(welcome_html)
 
     def set_content(self, html: str) -> None:
         """Display HTML content in the viewer.
