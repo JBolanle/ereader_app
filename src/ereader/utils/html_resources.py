@@ -28,7 +28,11 @@ MIME_TYPES = {
 }
 
 
-def resolve_images_in_html(html: str, epub_book: "EPUBBook") -> str:
+def resolve_images_in_html(
+    html: str,
+    epub_book: "EPUBBook",
+    chapter_href: str | None = None
+) -> str:
     """Resolve image references in HTML by embedding them as base64 data URLs.
 
     Finds all <img> tags in the HTML content and replaces relative src attributes
@@ -37,6 +41,9 @@ def resolve_images_in_html(html: str, epub_book: "EPUBBook") -> str:
     Args:
         html: The HTML content containing image references.
         epub_book: The EPUBBook instance to load image resources from.
+        chapter_href: Optional href of the chapter HTML file (e.g., "text/chapter1.html").
+                     If provided, image paths are resolved relative to this file.
+                     If None, paths are resolved relative to the OPF file.
 
     Returns:
         Modified HTML with images embedded as data URLs.
@@ -45,6 +52,9 @@ def resolve_images_in_html(html: str, epub_book: "EPUBBook") -> str:
         >>> html = '<img src="images/cover.jpg" />'
         >>> resolved_html = resolve_images_in_html(html, book)
         >>> # Result: '<img src="data:image/jpeg;base64,/9j/4AAQ..." />'
+        >>> # With chapter context
+        >>> html = '<img src="../images/photo.jpg" />'
+        >>> resolved_html = resolve_images_in_html(html, book, chapter_href="text/chapter1.html")
     """
     # Pattern to match <img> tags and capture the src attribute
     # Handles various quote styles and whitespace
@@ -68,7 +78,8 @@ def resolve_images_in_html(html: str, epub_book: "EPUBBook") -> str:
 
         try:
             # Load image data from EPUB
-            image_data = epub_book.get_resource(src_value)
+            # Pass chapter context if available for correct path resolution
+            image_data = epub_book.get_resource(src_value, relative_to=chapter_href)
 
             # Determine MIME type from extension
             mime_type = _get_mime_type(src_value)

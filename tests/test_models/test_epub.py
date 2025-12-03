@@ -935,6 +935,47 @@ class TestEPUBChapterContent:
 
         assert book.get_chapter_count() == 3
 
+    def test_get_chapter_href_returns_correct_href(self, tmp_path: Path) -> None:
+        """Test that get_chapter_href returns the correct href for a chapter."""
+        chapters = {
+            "ch1": "<html><body><h1>Chapter 1</h1></body></html>",
+            "ch2": "<html><body><h1>Chapter 2</h1></body></html>",
+            "ch3": "<html><body><h1>Chapter 3</h1></body></html>",
+        }
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        # Test getting hrefs for different chapters
+        assert book.get_chapter_href(0) == "ch1.xhtml"
+        assert book.get_chapter_href(1) == "ch2.xhtml"
+        assert book.get_chapter_href(2) == "ch3.xhtml"
+
+    def test_get_chapter_href_negative_index_raises_error(self, tmp_path: Path) -> None:
+        """Test that get_chapter_href raises IndexError for negative index."""
+        chapters = {
+            "ch1": "<html><body><h1>Chapter 1</h1></body></html>",
+        }
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        with pytest.raises(IndexError, match="out of range"):
+            book.get_chapter_href(-1)
+
+    def test_get_chapter_href_index_too_large_raises_error(self, tmp_path: Path) -> None:
+        """Test that get_chapter_href raises IndexError when index >= chapter count."""
+        chapters = {
+            "ch1": "<html><body><h1>Chapter 1</h1></body></html>",
+            "ch2": "<html><body><h1>Chapter 2</h1></body></html>",
+        }
+
+        epub_file = self._create_epub_with_content(tmp_path, chapters)
+        book = EPUBBook(epub_file)
+
+        with pytest.raises(IndexError, match="out of range"):
+            book.get_chapter_href(2)  # Only indices 0 and 1 are valid
+
     def test_get_chapter_content_first_chapter(self, tmp_path: Path) -> None:
         """Test reading content of the first chapter."""
         chapter_content = "<html><body><h1>Chapter 1</h1><p>This is the first chapter.</p></body></html>"

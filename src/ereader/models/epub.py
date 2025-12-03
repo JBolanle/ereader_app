@@ -282,6 +282,32 @@ class EPUBBook:
         """
         return len(self._spine)
 
+    def get_chapter_href(self, chapter_index: int) -> str:
+        """Get the href of a chapter by its index in the reading order.
+
+        Args:
+            chapter_index: Zero-based index of the chapter in the spine.
+
+        Returns:
+            The chapter's href as specified in the manifest (e.g., "text/chapter1.html").
+
+        Raises:
+            IndexError: If chapter_index is out of range.
+            CorruptedEPUBError: If the chapter item is not found in the manifest.
+        """
+        if chapter_index < 0 or chapter_index >= len(self._spine):
+            raise IndexError(
+                f"Chapter index {chapter_index} out of range (0-{len(self._spine) - 1})"
+            )
+
+        item_id = self._spine[chapter_index]
+        if item_id not in self._manifest:
+            raise CorruptedEPUBError(
+                f"Spine references item {item_id} that doesn't exist in manifest"
+            )
+
+        return self._manifest[item_id]
+
     def get_chapter_content(self, chapter_index: int) -> str:
         """Get the content of a chapter by its index in the reading order.
 
@@ -355,16 +381,18 @@ class EPUBBook:
                 f"Chapter file {full_path} not found in EPUB (referenced by item {item_id})"
             ) from None
 
-    def get_resource(self, resource_href: str) -> bytes:
+    def get_resource(self, resource_href: str, relative_to: str | None = None) -> bytes:
         """Get a resource (image, CSS, font, etc.) from the EPUB by its href.
 
         Resources in EPUB HTML content use relative paths (e.g., "images/cover.jpg").
-        This method resolves the path relative to the OPF file location and extracts
-        the resource from the EPUB ZIP archive.
+        This method resolves the path and extracts the resource from the EPUB ZIP archive.
 
         Args:
             resource_href: Relative href of the resource as referenced in HTML/XHTML content.
-                          Examples: "images/cover.jpg", "../styles/main.css"
+                          Examples: "images/cover.jpg", "../images/photo.jpg"
+            relative_to: Optional path to resolve the resource relative to.
+                        This should be the href of the content document (e.g., "text/chapter1.html").
+                        If None, resolves relative to the OPF file location.
 
         Returns:
             Raw bytes of the resource file.
@@ -374,19 +402,36 @@ class EPUBBook:
 
         Example:
             >>> book = EPUBBook("book.epub")
+            >>> # Resource from OPF manifest
             >>> image_data = book.get_resource("images/cover.jpg")
-            >>> # Can be used to create data URLs or save to disk
+            >>> # Resource from chapter HTML (relative to chapter)
+            >>> image_data = book.get_resource("../images/photo.jpg", relative_to="text/chapter1.html")
         """
-        logger.debug("Retrieving resource: %s", resource_href)
+        logger.debug("Retrieving resource: %s (relative_to: %s)", resource_href, relative_to)
 
-        # Resolve the full path within the EPUB
-        # Resource hrefs are relative to the OPF file location
-        opf_path = self._get_opf_path()
-        opf_dir = str(Path(opf_path).parent)
+        # Determine the base directory for path resolution
+        if relative_to:
+            # Resolve relative to the content document directory
+            # First, resolve the content document path relative to OPF
+            opf_path = self._get_opf_path()
+            opf_dir = str(Path(opf_path).parent)
+
+            # Build full path to content document
+            if opf_dir and opf_dir != ".":
+                content_doc_path = f"{opf_dir}/{relative_to}"
+            else:
+                content_doc_path = relative_to
+
+            # Get the directory containing the content document
+            base_dir = str(Path(content_doc_path).parent)
+        else:
+            # Resolve relative to OPF file location (default behavior)
+            opf_path = self._get_opf_path()
+            base_dir = str(Path(opf_path).parent)
 
         # Build the full path within the ZIP
-        if opf_dir and opf_dir != ".":
-            full_path = f"{opf_dir}/{resource_href}"
+        if base_dir and base_dir != ".":
+            full_path = f"{base_dir}/{resource_href}"
         else:
             full_path = resource_href
 
