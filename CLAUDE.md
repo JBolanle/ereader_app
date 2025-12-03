@@ -398,8 +398,15 @@ These things I must implement myself (for learning):
   - [x] Full chapter navigation and error handling
   - [x] 96% test coverage (82 tests)
   - [x] Comprehensive manual testing
+- [x] Image rendering support (COMPLETED - PR #23) ✅
+  - [x] EPUBBook.get_resource() method for extracting resources from ZIP
+  - [x] HTML image resolution with base64 data URL embedding
+  - [x] Support for PNG, JPG, GIF, SVG, WebP, BMP formats
+  - [x] Complex path normalization (nested dirs, parent refs)
+  - [x] Graceful error handling for missing images
+  - [x] 100% test coverage on new code (13 new tests, 95 total)
+  - [x] 96.42% overall coverage maintained
 - [ ] Next steps
-  - [ ] Image rendering support (Issue #20)
   - [ ] Arrow key navigation (Issue #21)
   - [ ] Basic reading themes (light/dark mode)
   - [ ] Bookmarks feature
@@ -421,6 +428,7 @@ Record architectural decisions here as they're made:
 | 2025-12-03 | Rendering widget: QTextBrowser | Lightweight, simpler to learn, sufficient HTML/CSS support for most EPUBs. Can upgrade to QWebEngineView if needed. | docs/architecture/epub-rendering-architecture.md |
 | 2025-12-03 | MVC with Protocol abstraction | Controller owns state, views are stateless. Protocol interfaces enable swapping implementations (QTextBrowser → QWebEngineView). | docs/architecture/epub-rendering-architecture.md |
 | 2025-12-03 | Synchronous for MVP | No async until performance testing shows need. Simpler for learning, measure first before optimizing. | docs/architecture/epub-rendering-architecture.md |
+| 2025-12-03 | Image rendering: Base64 data URLs | Embed images as base64 in HTML for QTextBrowser compatibility. Simpler than QTextDocument resource API, acceptable memory trade-off (~33% larger) for MVP. Can add caching later if needed. | docs/reviews/feature-image-rendering.md |
 
 ## File Structure
 

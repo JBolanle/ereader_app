@@ -13,15 +13,26 @@ This project serves dual purposes:
 ### Current Progress
 
 - [x] Core architecture setup (MVC pattern, exception handling)
-- [x] Test infrastructure established (comprehensive test suite)
-- [x] EPUB parsing complete
+- [x] Test infrastructure established (comprehensive test suite, 96.42% coverage)
+- [x] EPUB parsing complete (PR #15)
   - [x] Metadata extraction (title, author, language)
   - [x] Manifest and spine parsing (file structure, reading order)
   - [x] Chapter content reading (with UTF-8/latin-1 encoding support)
+  - [x] Resource extraction (images, CSS, fonts)
   - [x] Error handling for non-EPUB and corrupted files (PR #14)
   - [x] Integration testing with real EPUB files (PR #15)
-- [ ] **Next up**: EPUB rendering engine (text display)
-- [ ] UI framework selection and setup
+- [x] EPUB rendering MVP (PR #22) 🎉
+  - [x] PyQt6 UI with QTextBrowser renderer
+  - [x] Chapter navigation (next/previous buttons)
+  - [x] Reading progress tracking
+  - [x] MVC architecture with Protocol abstraction
+  - [x] Full error handling and edge cases
+- [x] Image rendering support (PR #23) ✅
+  - [x] Base64 data URL embedding for QTextBrowser compatibility
+  - [x] Multiple format support (PNG, JPG, GIF, SVG, WebP, BMP)
+  - [x] Path normalization for complex EPUB structures
+  - [x] Graceful handling of missing images
+- [ ] **Next up**: Basic reading themes (light/dark mode) OR arrow key navigation (Issue #21)
 
 See [CLAUDE.md](CLAUDE.md) for detailed development context and current sprint.
 
@@ -143,9 +154,10 @@ ereader_app/
 ## 🗺️ Features Roadmap
 
 ### 🎯 Core (MVP)
-- [ ] Open and render EPUB files
-- [ ] Page/chapter navigation
-- [ ] Reading progress tracking
+- [x] Open and render EPUB files (PR #22)
+- [x] Page/chapter navigation (PR #22)
+- [x] Reading progress tracking (PR #22)
+- [x] Image rendering support (PR #23)
 - [ ] Basic reading themes (light/dark)
 
 ### ⭐ Important
