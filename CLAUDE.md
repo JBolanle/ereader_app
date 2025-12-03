@@ -391,8 +391,9 @@ These things I must implement myself (for learning):
   - [x] Integration tests with real EPUB files
   - [x] Test complete reading workflow
 - [ ] Next steps
-  - [ ] EPUB rendering MVP (text display)
-  - [ ] UI framework decision and setup
+  - [ ] EPUB rendering architecture (Issue #17)
+  - [ ] EPUB rendering MVP implementation (Issue #18)
+  - [ ] PyQt6 learning and UI development
 
 ## Decisions Log
 
