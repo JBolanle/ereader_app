@@ -193,6 +193,85 @@ class TestEPUBBookInit:
 
         assert "container.xml" in str(exc_info.value).lower()
 
+    def test_init_with_txt_file(self, tmp_path: Path) -> None:
+        """Test initialization with a .txt file (not EPUB format)."""
+        txt_file = tmp_path / "document.txt"
+        txt_file.write_text("This is a plain text file with some content.\nMultiple lines.\n")
+
+        with pytest.raises(InvalidEPUBError) as exc_info:
+            EPUBBook(txt_file)
+
+        assert "not a valid" in str(exc_info.value).lower()
+        assert "zip" in str(exc_info.value).lower()
+
+    def test_init_with_pdf_file(self, tmp_path: Path) -> None:
+        """Test initialization with a .pdf file (not EPUB format)."""
+        pdf_file = tmp_path / "document.pdf"
+        # Write PDF magic bytes followed by some content
+        pdf_file.write_bytes(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+
+        with pytest.raises(InvalidEPUBError) as exc_info:
+            EPUBBook(pdf_file)
+
+        assert "not a valid" in str(exc_info.value).lower()
+        assert "zip" in str(exc_info.value).lower()
+
+    def test_init_with_jpg_file(self, tmp_path: Path) -> None:
+        """Test initialization with a .jpg image file (not EPUB format)."""
+        jpg_file = tmp_path / "image.jpg"
+        # Write JPEG magic bytes (JFIF format)
+        jpg_file.write_bytes(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01")
+
+        with pytest.raises(InvalidEPUBError) as exc_info:
+            EPUBBook(jpg_file)
+
+        assert "not a valid" in str(exc_info.value).lower()
+        assert "zip" in str(exc_info.value).lower()
+
+    def test_init_with_docx_file(self, tmp_path: Path) -> None:
+        """Test initialization with a .docx file (which is a ZIP but not EPUB)."""
+        docx_file = tmp_path / "document.docx"
+        # DOCX files are ZIP archives but missing EPUB structure
+        with zipfile.ZipFile(docx_file, "w") as zf:
+            zf.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
+            zf.writestr("word/document.xml", '<?xml version="1.0"?><document/>')
+
+        with pytest.raises(InvalidEPUBError) as exc_info:
+            EPUBBook(docx_file)
+
+        assert "container.xml" in str(exc_info.value).lower()
+
+    def test_init_with_corrupted_zip_file(self, tmp_path: Path) -> None:
+        """Test initialization with a corrupted ZIP file."""
+        corrupted_file = tmp_path / "corrupted.epub"
+
+        # Create a valid ZIP first
+        with zipfile.ZipFile(corrupted_file, "w") as zf:
+            zf.writestr("META-INF/container.xml", "some content")
+
+        # Corrupt the file by truncating it
+        with open(corrupted_file, "r+b") as f:
+            f.seek(0, 2)  # Seek to end
+            file_size = f.tell()
+            # Truncate to 50% of original size (corrupting the ZIP structure)
+            f.truncate(file_size // 2)
+
+        with pytest.raises(InvalidEPUBError) as exc_info:
+            EPUBBook(corrupted_file)
+
+        assert "not a valid" in str(exc_info.value).lower()
+
+    def test_init_with_zip_file_with_pk_header_only(self, tmp_path: Path) -> None:
+        """Test initialization with file that has ZIP magic bytes but is incomplete."""
+        fake_zip = tmp_path / "fake.epub"
+        # Write ZIP magic bytes (PK header) but nothing else
+        fake_zip.write_bytes(b"PK\x03\x04")
+
+        with pytest.raises(InvalidEPUBError) as exc_info:
+            EPUBBook(fake_zip)
+
+        assert "not a valid" in str(exc_info.value).lower()
+
 
 class TestEPUBMetadataExtraction:
     """Test metadata extraction from EPUB files."""
