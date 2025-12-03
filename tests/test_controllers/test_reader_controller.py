@@ -508,3 +508,258 @@ class TestReaderControllerChapterLoading:
         args = error_spy.call_args[0]
         assert args[0] == "Error"
         assert "Unexpected error" in args[1]
+
+
+class TestReaderControllerCaching:
+    """Test chapter caching behavior in ReaderController."""
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_cache_hit_on_repeated_chapter_load(self, mock_resolve_images):
+        """Test that re-loading same chapter uses cache (cache hit)."""
+        # Setup mock book
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.return_value = "text/chapter1.html"
+        mock_book.get_chapter_content.return_value = "<p>Raw chapter content</p>"
+        mock_resolve_images.return_value = "<p>Rendered chapter content</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        content_spy = Mock()
+        controller.content_ready.connect(content_spy)
+
+        # First load - should render
+        controller._load_chapter(0)
+
+        # Verify rendering happened
+        mock_book.get_chapter_content.assert_called_once_with(0)
+        mock_resolve_images.assert_called_once()
+        content_spy.assert_called_once_with("<p>Rendered chapter content</p>")
+
+        # Reset spies
+        mock_book.get_chapter_content.reset_mock()
+        mock_resolve_images.reset_mock()
+        content_spy.reset_mock()
+
+        # Second load of same chapter - should use cache
+        controller._load_chapter(0)
+
+        # Verify no rendering happened (cache hit)
+        mock_book.get_chapter_content.assert_not_called()
+        mock_resolve_images.assert_not_called()
+
+        # But content was still emitted
+        content_spy.assert_called_once_with("<p>Rendered chapter content</p>")
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_cache_miss_on_different_chapter(self, mock_resolve_images):
+        """Test that loading different chapter misses cache."""
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i} raw</p>"
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content.replace("raw", "rendered")
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Load chapter 0
+        controller._load_chapter(0)
+        assert mock_book.get_chapter_content.call_count == 1
+
+        # Load chapter 1 - should miss cache
+        controller._load_chapter(1)
+        assert mock_book.get_chapter_content.call_count == 2
+
+        # Load chapter 2 - should miss cache
+        controller._load_chapter(2)
+        assert mock_book.get_chapter_content.call_count == 3
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_sequential_navigation_caching(self, mock_resolve_images):
+        """Test cache behavior during forward sequential navigation."""
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 15
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Navigate forward through chapters 0-12
+        for i in range(13):
+            controller._load_chapter(i)
+
+        # At this point, with maxsize=10, chapters 0-2 should be evicted
+        # Chapters 3-12 should be in cache
+
+        # Reset mock to count cache hits
+        mock_book.get_chapter_content.reset_mock()
+
+        # Re-load chapter 2 - should miss (evicted)
+        controller._load_chapter(2)
+        assert mock_book.get_chapter_content.call_count == 1
+
+        mock_book.get_chapter_content.reset_mock()
+
+        # Re-load chapter 12 - should hit (recently used)
+        controller._load_chapter(12)
+        assert mock_book.get_chapter_content.call_count == 0  # Cache hit
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_backward_navigation_caching(self, mock_resolve_images):
+        """Test cache behavior during backward navigation."""
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 10
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Navigate to chapter 5
+        for i in range(6):
+            controller._load_chapter(i)
+
+        # Reset mock to count cache hits
+        mock_book.get_chapter_content.reset_mock()
+
+        # Navigate backward 5 -> 4 -> 3 (all should be cache hits)
+        controller._load_chapter(4)
+        controller._load_chapter(3)
+
+        # Verify no new chapter loads (all cache hits)
+        assert mock_book.get_chapter_content.call_count == 0
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_cache_cleared_on_new_book(self, mock_resolve_images):
+        """Test that cache is cleared when opening a new book."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        # Setup first book
+        mock_book1 = MagicMock()
+        mock_book1.filepath = "/path/to/book1.epub"
+        mock_book1.title = "Book 1"
+        mock_book1.authors = ["Author 1"]
+        mock_book1.get_chapter_count.return_value = 5
+        mock_book1.get_chapter_href.return_value = "text/chapter0.html"
+        mock_book1.get_chapter_content.return_value = "<p>Book 1 Chapter 0</p>"
+
+        # Setup second book
+        mock_book2 = MagicMock()
+        mock_book2.filepath = "/path/to/book2.epub"
+        mock_book2.title = "Book 2"
+        mock_book2.authors = ["Author 2"]
+        mock_book2.get_chapter_count.return_value = 5
+        mock_book2.get_chapter_href.return_value = "text/chapter0.html"
+        mock_book2.get_chapter_content.return_value = "<p>Book 2 Chapter 0</p>"
+
+        controller = ReaderController()
+
+        with patch('ereader.controllers.reader_controller.EPUBBook') as mock_epub_class:
+            # Open first book and navigate
+            mock_epub_class.return_value = mock_book1
+            controller.open_book("/path/to/book1.epub")
+
+            # Cache should have 1 entry
+            assert controller._chapter_cache.stats()["size"] == 1
+
+            # Open second book
+            mock_epub_class.return_value = mock_book2
+            controller.open_book("/path/to/book2.epub")
+
+            # Cache should be cleared and have 1 entry (from new book)
+            stats = controller._chapter_cache.stats()
+            assert stats["size"] == 1
+            # Stats should be reset (hits are 0, but we have 1 miss from loading the first chapter)
+            assert stats["hits"] == 0
+            assert stats["misses"] == 1  # One miss from loading chapter 0 of new book
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_cache_key_uniqueness(self, mock_resolve_images):
+        """Test that different books don't collide in cache."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Load chapter 0 from first book
+        controller._load_chapter(0)
+        first_content = controller._chapter_cache.get("/path/to/book.epub:0")
+
+        # Simulate changing book (different path)
+        mock_book.filepath = "/path/to/different_book.epub"
+
+        # Load chapter 0 from second book
+        controller._load_chapter(0)
+
+        # Both chapters should be in cache with different keys
+        assert controller._chapter_cache.get("/path/to/book.epub:0") == first_content
+        assert controller._chapter_cache.get("/path/to/different_book.epub:0") == "<p>Chapter 0</p>"
+
+    def test_next_chapter_uses_cache(self):
+        """Test that next_chapter() method benefits from caching."""
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
+
+        with patch('ereader.controllers.reader_controller.resolve_images_in_html') as mock_resolve:
+            mock_resolve.side_effect = lambda content, *args, **kwargs: content
+
+            controller = ReaderController()
+            controller._book = mock_book
+            controller._current_chapter_index = 0
+
+            # Load initial chapter
+            controller._load_chapter(0)
+            assert mock_book.get_chapter_content.call_count == 1
+
+            # Navigate forward
+            controller.next_chapter()
+            assert mock_book.get_chapter_content.call_count == 2
+
+            # Navigate backward (should hit cache)
+            controller.previous_chapter()
+            assert mock_book.get_chapter_content.call_count == 2  # No new load
+
+    def test_previous_chapter_uses_cache(self):
+        """Test that previous_chapter() method benefits from caching."""
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
+
+        with patch('ereader.controllers.reader_controller.resolve_images_in_html') as mock_resolve:
+            mock_resolve.side_effect = lambda content, *args, **kwargs: content
+
+            controller = ReaderController()
+            controller._book = mock_book
+            controller._current_chapter_index = 2
+
+            # Load initial chapter
+            controller._load_chapter(2)
+            assert mock_book.get_chapter_content.call_count == 1
+
+            # Navigate backward
+            controller.previous_chapter()
+            assert mock_book.get_chapter_content.call_count == 2
+
+            # Navigate forward (should hit cache)
+            controller.next_chapter()
+            assert mock_book.get_chapter_content.call_count == 2  # No new load
