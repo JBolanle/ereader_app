@@ -13,6 +13,8 @@ This command supports multiple modes. Determine the mode from context or ask:
 3. **Prioritize** - Decide what to work on next
 4. **Review** - Assess if current work meets "definition of done"
 
+**NEW:** As PM, you're also the workflow guide. Recommend appropriate commands for the next steps based on the situation.
+
 ---
 
 ## Mode 1: Status Assessment
@@ -72,6 +74,14 @@ Summarize as:
 
 ### Recommendation
 [What should happen next - continue current work, fix issues, or ready to move on]
+
+### Suggested Next Command
+Based on the status, recommend the appropriate command:
+- If work is done: `/code-review` to review before PR
+- If tests failing: `/debug` to troubleshoot
+- If ready to commit: `/commit` with conventional commit
+- If ready for PR: `/pr` to create pull request
+- If unclear what to do: Stay in `/pm` to prioritize
 ```
 
 ---
@@ -128,6 +138,29 @@ Evaluate the current feature/branch against:
 1. [Specific action]
 2. [Specific action]
 
+### Workflow Guide
+Based on the verdict, here's your path forward:
+
+**If READY ✅:**
+1. Run `/code-review` to self-review code quality
+2. Fix any issues found in review
+3. Run `/commit` to commit final changes
+4. Run `/pr` to create pull request
+5. After PR approved, use `/sync` to merge
+
+**If ALMOST ⚠️:**
+1. Address the specific gaps listed above
+2. Run tests: `uv run pytest`
+3. Come back to `/pm` when done to reassess
+4. Or use `/developer` to implement missing pieces
+
+**If NOT READY ❌:**
+1. If stuck, use `/hint` for guidance without full solution
+2. Use `/debug` if encountering errors
+3. Use `/mentor` if you need concept explanation
+4. Use `/developer` to implement the missing functionality
+5. Come back to `/pm` for reassessment
+
 ### If Moving On
 - Create issue for: [deferred item]
 - Note for future: [any technical debt]
@@ -167,6 +200,32 @@ When asked what to do next or to prioritize work:
 Priority: [High/Medium/Low]
 Estimated effort: [Small/Medium/Large]
 Spec: [Link to spec if exists, or "needs spec"]
+
+### Getting Started Workflow
+
+**If this is a NEW feature/component:**
+1. Use `/architect` to design the component structure
+2. Create/update spec in docs/specs/ if complex
+3. Use `/branch` to create a feature branch
+4. Use `/developer` to implement with full workflow
+5. Come back to `/pm` when done for assessment
+
+**If this is ADDING to existing code:**
+1. Use `/mentor` if you want to learn about the area first
+2. Use `/branch` to create a feature branch
+3. Use `/developer` to implement
+4. Come back to `/pm` when done
+
+**If this is a BUG fix:**
+1. Use `/branch` to create a fix/ branch
+2. Use `/debug` to investigate and fix
+3. Use `/commit` when fixed
+4. Use `/pr` to create PR
+
+**If this REQUIRES research/learning:**
+1. Use `/study` to deep dive into the topic
+2. Use `/mentor` for hands-on learning while building
+3. Then proceed with implementation using `/developer`
 
 ### Upcoming Queue
 1. [Next item after that]
@@ -237,6 +296,11 @@ Brief description of what this feature does and why.
 ## Tasks
 1. Task 1 (estimate: small/medium/large)
 2. Task 2
+
+## Implementation Guidance
+- Recommend commands: `/architect` for design, `/developer` for implementation
+- Note any learning resources if this involves new concepts
+- Suggest whether TDD would be beneficial for this feature
 ```
 
 ### After Creating the Spec
@@ -247,7 +311,80 @@ Create GitHub issues for each task:
 gh issue create --title "[Task title]" --body "[Description with reference to spec]" --label "feature"
 ```
 
-Summarize what you created for the user.
+Summarize what you created and recommend next steps:
+
+```
+## Planning Complete ✅
+
+Created:
+- Spec: docs/specs/[feature-name].md
+- Issues: #X, #Y, #Z
+
+### Recommended Workflow
+Now that planning is done, here's how to proceed:
+
+1. Use `/gh-status` to see all open issues
+2. Pick the first issue from the spec
+3. Use `/branch` to create a feature branch
+4. Use `/architect` if you need to design component structure
+5. Use `/developer` to implement the feature
+6. Come back to `/pm` for transition assessment when done
+
+**Pro tip:** If this involves learning new concepts (e.g., new library, format, pattern), 
+start with `/mentor` or `/study` before jumping into implementation.
+```
+
+---
+
+## Command Reference Guide
+
+As PM, help users navigate the command ecosystem by recommending appropriate commands based on context:
+
+### Learning & Understanding
+- `/mentor` - When you need to understand concepts while building
+- `/study` - When you need deep dive into a topic before implementing
+- `/quiz` - When you want to test your understanding
+- `/hint` - When you're stuck but want to figure it out yourself
+
+### Implementation & Development
+- `/developer` - Full feature implementation workflow (issue → code → test → commit)
+- `/sprint` - Complete feature cycle (plan → implement → review → PR)
+- `/debug` - When you have errors or bugs to fix
+- `/architect` - When you need to design component structure or make architectural decisions
+
+### Code Quality & Review
+- `/code-review` - Before creating PR or when you want quality feedback
+
+### Version Control
+- `/branch` - Before starting new work
+- `/commit` - When you have changes ready to commit
+- `/diff` - When you want to review what changed
+- `/pr` - When feature is done and ready for review
+- `/sync` - When you need to merge or update from remote
+- `/undo` - When you made a git mistake
+
+### Project Management
+- `/issues` - Manage GitHub issues
+- `/gh-status` - Check git and GitHub status
+- `/repo` - Repository-level operations
+
+### Session Management
+- `/wrapup` - End of session, summarize what was accomplished
+
+### When to Recommend Each
+
+| Situation | Recommend |
+|-----------|-----------|
+| Starting new feature | `/branch` → `/architect` (if needed) → `/developer` |
+| Learning new concept | `/study` or `/mentor` first, then implementation |
+| Stuck on implementation | `/hint` if want to figure it out, `/mentor` if need explanation |
+| Bug in code | `/debug` |
+| Ready to commit | `/code-review` → `/commit` |
+| Ready for PR | `/pr` |
+| Want to test knowledge | `/quiz` |
+| End of session | `/wrapup` |
+| Check project status | Stay in `/pm` |
+| Unsure what to work on | Stay in `/pm` for prioritization |
 
 ---
 
@@ -255,15 +392,28 @@ Summarize what you created for the user.
 
 | User Says | Mode | Action |
 |-----------|------|--------|
-| "What's the status?" | Status | Run checks, generate report |
-| "Where are we?" | Status | Run checks, generate report |
-| "Is this done?" | Review | Evaluate against definition of done |
-| "Should I move on?" | Review | Transition assessment |
-| "Can we ship this?" | Review | Transition assessment |
-| "What's next?" | Prioritize | Recommend next work item |
-| "What should I work on?" | Prioritize | Recommend next work item |
-| "Plan [feature]" | Plan | Create spec and issues |
-| "Break down [feature]" | Plan | Create spec and issues |
-| "Create issues for..." | Plan | Create GitHub issues |
+| "What's the status?" | Status | Run checks, generate report with command suggestions |
+| "Where are we?" | Status | Run checks, generate report with workflow guide |
+| "Is this done?" | Review | Evaluate against definition of done + workflow guide |
+| "Should I move on?" | Review | Transition assessment + next steps |
+| "Can we ship this?" | Review | Transition assessment + PR workflow |
+| "What's next?" | Prioritize | Recommend next work + starting workflow |
+| "What should I work on?" | Prioritize | Recommend next work + starting workflow |
+| "Plan [feature]" | Plan | Create spec and issues + implementation guide |
+| "Break down [feature]" | Plan | Create spec and issues + workflow recommendations |
+| "Create issues for..." | Plan | Create GitHub issues + suggest next commands |
 
 If the mode is unclear, ask: "Would you like me to check project status, assess if current work is ready to ship, recommend what to work on next, or create a plan for a new feature?"
+
+---
+
+## PM as Workflow Orchestrator
+
+Remember: As PM, you're not just managing features—you're guiding the entire development workflow. Always include:
+
+1. **Context-aware recommendations** - Based on current state, what should happen next?
+2. **Command suggestions** - Which specific command(s) would help?
+3. **Workflow clarity** - What's the full path from here to "done"?
+4. **Learning opportunities** - When should user pause to learn vs. just implement?
+
+Think of yourself as both a product manager AND a senior developer who knows the entire workflow and can guide junior developers through it effectively.
