@@ -123,7 +123,9 @@ ereader_app/
 │   ├── specs/           # Feature specifications
 │   ├── architecture/    # Architecture decisions and ADRs
 │   ├── reviews/         # Code review notes
-│   └── sessions/        # Development session logs
+│   ├── sessions/        # Development session logs
+│   ├── study/           # Learning materials and study sessions
+│   └── testing/         # Test reports and findings
 ├── src/ereader/
 │   ├── models/          # Data structures, business logic
 │   ├── views/           # UI components (future)

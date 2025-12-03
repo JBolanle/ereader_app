@@ -1,7 +1,7 @@
 """Integration tests with real EPUB files.
 
 This module tests the EPUBBook implementation with real-world EPUB files
-from the playground/EPUBS directory. These tests verify that the parser
+from the scratch/EPUBS directory. These tests verify that the parser
 handles diverse EPUB formats correctly.
 
 Test Files:
@@ -17,7 +17,7 @@ import pytest
 from ereader.models.epub import EPUBBook
 
 # Path to real EPUB files
-EPUB_DIR = Path(__file__).parent.parent.parent / "playground" / "EPUBS"
+EPUB_DIR = Path(__file__).parent.parent.parent / "scratch" / "EPUBS"
 
 # Test file definitions
 EPUB_FILES = {
@@ -50,7 +50,7 @@ EPUB_FILES = {
 
 
 @pytest.mark.skipif(
-    not EPUB_DIR.exists(), reason="EPUB test files not found in playground/EPUBS"
+    not EPUB_DIR.exists(), reason="EPUB test files not found in scratch/EPUBS"
 )
 class TestRealEPUBFiles:
     """Test EPUBBook with real-world EPUB files."""

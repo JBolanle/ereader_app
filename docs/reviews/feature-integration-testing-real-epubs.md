@@ -17,7 +17,7 @@ This PR completes Issue #7 by adding comprehensive integration tests using 3 rea
 **Files Added:**
 - `tests/test_integration/__init__.py` - Integration test package
 - `tests/test_integration/test_real_epub_files.py` - 9 integration tests
-- `docs/integration-testing-findings.md` - Comprehensive findings document
+- `docs/testing/integration-testing-epub-2025-12-02.md` - Comprehensive findings document
 - `playground/test_real_epubs.py` - Exploration/debugging script
 
 **Test Results:**
@@ -46,7 +46,7 @@ This PR completes Issue #7 by adding comprehensive integration tests using 3 rea
    - Chapter content reading (first, middle, last, all chapters)
    - Cross-file validation (all EPUBs work)
 
-5. **Excellent Documentation**: `integration-testing-findings.md` provides:
+5. **Excellent Documentation**: `docs/testing/integration-testing-epub-2025-12-02.md` provides:
    - Detailed findings for each book
    - Performance observations
    - Acceptance criteria verification
