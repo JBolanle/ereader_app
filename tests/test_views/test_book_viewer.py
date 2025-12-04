@@ -261,6 +261,32 @@ class TestBookViewerGetScrollPercentage:
             percentage = viewer.get_scroll_percentage()
             assert percentage == 0.0
 
+    def test_get_scroll_percentage_division_by_zero_protection(self, viewer):
+        """Test that get_scroll_percentage handles zero range (max == min) correctly.
+
+        This explicitly tests the division by zero protection when
+        scrollbar.maximum() == scrollbar.minimum(), which occurs when
+        content fits entirely within the viewport.
+        """
+        # Set minimal content to ensure no scrolling
+        minimal_html = "<html><body><p>.</p></body></html>"
+        viewer.set_content(minimal_html)
+        viewer.show()
+        viewer.resize(800, 600)
+        QApplication.processEvents()
+
+        scrollbar = viewer._renderer.verticalScrollBar()
+
+        # Explicitly verify we have a zero range (division by zero condition)
+        assert scrollbar.maximum() == scrollbar.minimum(), \
+            "Test requires non-scrollable content (max == min)"
+
+        # This should NOT raise ZeroDivisionError
+        percentage = viewer.get_scroll_percentage()
+
+        # Should return 0.0 for non-scrollable content
+        assert percentage == 0.0
+
 
 class TestBookViewerScrollSignal:
     """Test scroll_position_changed signal emission."""

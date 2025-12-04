@@ -58,11 +58,13 @@ class BookViewer(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        # Connect scrollbar changes to emit our signal
-        self._renderer.verticalScrollBar().valueChanged.connect(self._on_scroll_changed)
-
         # Show welcome message
         self._show_welcome_message()
+
+        # Connect scrollbar changes to emit our signal
+        # Note: Connected after initial content load to avoid spurious 0% emission
+        # during initialization before any controllers are connected
+        self._renderer.verticalScrollBar().valueChanged.connect(self._on_scroll_changed)
 
         logger.debug("BookViewer initialized")
 
