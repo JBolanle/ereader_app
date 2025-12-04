@@ -10,6 +10,8 @@ import logging
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QTextBrowser, QVBoxLayout, QWidget
 
+from ereader.models.theme import DEFAULT_THEME, Theme
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,8 +51,13 @@ class BookViewer(QWidget):
         self._renderer.setOpenExternalLinks(False)  # Don't open external links
         self._renderer.setOpenLinks(False)  # Don't follow internal links (for now)
 
-        # Set default styling for readability
-        self._setup_default_style()
+        # Set base font size
+        font = self._renderer.font()
+        font.setPointSize(12)
+        self._renderer.setFont(font)
+
+        # Apply default theme
+        self.apply_theme(DEFAULT_THEME)
 
         # Setup layout
         layout = QVBoxLayout(self)
@@ -68,25 +75,28 @@ class BookViewer(QWidget):
 
         logger.debug("BookViewer initialized")
 
-    def _setup_default_style(self) -> None:
-        """Configure default styling for better readability."""
-        logger.debug("Setting up default style")
+    def apply_theme(self, theme: Theme) -> None:
+        """Apply a visual theme to the book viewer.
 
-        # Set base font size (can be customized later)
-        font = self._renderer.font()
-        font.setPointSize(12)
-        self._renderer.setFont(font)
+        This method updates the stylesheet of the text browser to use the
+        colors defined in the provided theme.
 
-        # Add some padding via stylesheet
-        self._renderer.setStyleSheet("""
-            QTextBrowser {
+        Args:
+            theme: The theme to apply.
+        """
+        logger.debug("Applying theme: %s", theme.name)
+
+        # Generate stylesheet from theme colors
+        stylesheet = f"""
+            QTextBrowser {{
                 padding: 20px;
-                background-color: white;
-                color: black;
-            }
-        """)
+                background-color: {theme.background};
+                color: {theme.text};
+            }}
+        """
+        self._renderer.setStyleSheet(stylesheet)
 
-        logger.debug("Default style applied")
+        logger.debug("Theme applied: %s", theme.name)
 
     def _show_welcome_message(self) -> None:
         """Display a welcome message when no book is loaded."""

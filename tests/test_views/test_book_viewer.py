@@ -9,6 +9,7 @@ Uses pytest-qt for Qt widget testing with qtbot fixture.
 
 import pytest
 
+from ereader.models.theme import DARK_THEME, LIGHT_THEME, Theme
 from ereader.views.book_viewer import BookViewer
 
 
@@ -359,3 +360,67 @@ class TestBookViewerScrollSignal:
         with qtbot.waitSignal(viewer.scroll_position_changed, timeout=1000):
             new_html = "<html><body><p>New content</p></body></html>"
             viewer.set_content(new_html)
+
+
+class TestBookViewerTheme:
+    """Tests for BookViewer theme functionality."""
+
+    def test_apply_light_theme(self, qtbot, viewer):
+        """Test applying light theme updates stylesheet."""
+        viewer.apply_theme(LIGHT_THEME)
+
+        stylesheet = viewer._renderer.styleSheet()
+        assert LIGHT_THEME.background in stylesheet
+        assert LIGHT_THEME.text in stylesheet
+
+    def test_apply_dark_theme(self, qtbot, viewer):
+        """Test applying dark theme updates stylesheet."""
+        viewer.apply_theme(DARK_THEME)
+
+        stylesheet = viewer._renderer.styleSheet()
+        assert DARK_THEME.background in stylesheet
+        assert DARK_THEME.text in stylesheet
+
+    def test_apply_custom_theme(self, qtbot, viewer):
+        """Test applying a custom theme."""
+        custom_theme = Theme(
+            name="Custom",
+            background="#123456",
+            text="#abcdef",
+            status_bg="#fedcba",
+        )
+
+        viewer.apply_theme(custom_theme)
+
+        stylesheet = viewer._renderer.styleSheet()
+        assert custom_theme.background in stylesheet
+        assert custom_theme.text in stylesheet
+
+    def test_theme_switch(self, qtbot, viewer):
+        """Test switching between themes updates stylesheet."""
+        # Start with light theme
+        viewer.apply_theme(LIGHT_THEME)
+        stylesheet_light = viewer._renderer.styleSheet()
+
+        # Switch to dark theme
+        viewer.apply_theme(DARK_THEME)
+        stylesheet_dark = viewer._renderer.styleSheet()
+
+        # Verify stylesheets are different
+        assert stylesheet_light != stylesheet_dark
+
+        # Verify dark theme colors are present
+        assert DARK_THEME.background in stylesheet_dark
+        assert DARK_THEME.text in stylesheet_dark
+
+    def test_theme_preserves_padding(self, qtbot, viewer):
+        """Test that theme application preserves padding."""
+        viewer.apply_theme(LIGHT_THEME)
+
+        stylesheet = viewer._renderer.styleSheet()
+        assert "padding: 20px" in stylesheet
+
+        viewer.apply_theme(DARK_THEME)
+
+        stylesheet = viewer._renderer.styleSheet()
+        assert "padding: 20px" in stylesheet

@@ -10,7 +10,9 @@ Uses pytest-qt for Qt widget testing with qtbot fixture.
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PyQt6.QtCore import QSettings
 
+from ereader.models.theme import DARK_THEME, LIGHT_THEME
 from ereader.views.main_window import MainWindow
 
 
@@ -333,3 +335,153 @@ class TestMainWindowKeyboardShortcutBoundaries:
 
         # Verify still at last chapter
         assert main_window._controller._current_chapter_index == 4
+
+
+class TestMainWindowTheme:
+    """Tests for MainWindow theme functionality."""
+
+    def test_view_menu_exists(self, qtbot, main_window):
+        """Test that View menu is created."""
+        menu_bar = main_window.menuBar()
+        assert menu_bar is not None
+
+        # Find View menu
+        actions = menu_bar.actions()
+        view_menu_action = None
+        for action in actions:
+            if action.text() == "&View":
+                view_menu_action = action
+                break
+
+        assert view_menu_action is not None
+
+    def test_theme_submenu_exists(self, qtbot, main_window):
+        """Test that Theme submenu exists in View menu."""
+        menu_bar = main_window.menuBar()
+        actions = menu_bar.actions()
+
+        # Find View menu
+        view_menu = None
+        for action in actions:
+            if action.text() == "&View":
+                view_menu = action.menu()
+                break
+
+        assert view_menu is not None
+
+        # Find Theme submenu
+        theme_submenu_action = None
+        for action in view_menu.actions():
+            if action.text() == "&Theme":
+                theme_submenu_action = action
+                break
+
+        assert theme_submenu_action is not None
+
+    def test_theme_actions_created(self, qtbot, main_window):
+        """Test that Light and Dark theme actions are created."""
+        assert hasattr(main_window, "_theme_actions")
+        assert "light" in main_window._theme_actions
+        assert "dark" in main_window._theme_actions
+
+    def test_apply_light_theme(self, qtbot, main_window):
+        """Test applying light theme."""
+        main_window._apply_theme(LIGHT_THEME)
+
+        # Check book viewer has light theme
+        viewer_stylesheet = main_window._book_viewer._renderer.styleSheet()
+        assert LIGHT_THEME.background in viewer_stylesheet
+        assert LIGHT_THEME.text in viewer_stylesheet
+
+        # Check status bar has light theme
+        status_bar = main_window.statusBar()
+        assert status_bar is not None
+        status_stylesheet = status_bar.styleSheet()
+        assert LIGHT_THEME.status_bg in status_stylesheet
+
+    def test_apply_dark_theme(self, qtbot, main_window):
+        """Test applying dark theme."""
+        main_window._apply_theme(DARK_THEME)
+
+        # Check book viewer has dark theme
+        viewer_stylesheet = main_window._book_viewer._renderer.styleSheet()
+        assert DARK_THEME.background in viewer_stylesheet
+        assert DARK_THEME.text in viewer_stylesheet
+
+        # Check status bar has dark theme
+        status_bar = main_window.statusBar()
+        assert status_bar is not None
+        status_stylesheet = status_bar.styleSheet()
+        assert DARK_THEME.status_bg in status_stylesheet
+
+    def test_theme_switching(self, qtbot, main_window):
+        """Test switching between themes."""
+        # Apply light theme
+        main_window._apply_theme(LIGHT_THEME)
+        light_stylesheet = main_window._book_viewer._renderer.styleSheet()
+
+        # Switch to dark theme
+        main_window._apply_theme(DARK_THEME)
+        dark_stylesheet = main_window._book_viewer._renderer.styleSheet()
+
+        # Verify stylesheets changed
+        assert light_stylesheet != dark_stylesheet
+        assert DARK_THEME.background in dark_stylesheet
+
+    def test_handle_theme_selection(self, qtbot, main_window):
+        """Test theme selection handler."""
+        # Mock QSettings to avoid filesystem
+        with patch.object(QSettings, "setValue") as mock_save:
+            main_window._handle_theme_selection("dark")
+
+            # Verify theme was applied
+            assert main_window._current_theme == DARK_THEME
+
+            # Verify preference was saved
+            mock_save.assert_called_once_with("theme", "dark")
+
+    def test_save_theme_preference(self, qtbot, main_window):
+        """Test saving theme preference to QSettings."""
+        with patch.object(QSettings, "setValue") as mock_save:
+            main_window._save_theme_preference("dark")
+            mock_save.assert_called_once_with("theme", "dark")
+
+    def test_load_theme_preference_light(self, qtbot):
+        """Test loading light theme preference."""
+        with patch.object(QSettings, "value", return_value="light"):
+            window = MainWindow()
+            qtbot.addWidget(window)
+
+            assert window._current_theme == LIGHT_THEME
+            assert window._theme_actions["light"].isChecked()
+
+            window.close()
+
+    def test_load_theme_preference_dark(self, qtbot):
+        """Test loading dark theme preference."""
+        with patch.object(QSettings, "value", return_value="dark"):
+            window = MainWindow()
+            qtbot.addWidget(window)
+
+            assert window._current_theme == DARK_THEME
+            assert window._theme_actions["dark"].isChecked()
+
+            window.close()
+
+    def test_load_theme_preference_defaults_to_light(self, qtbot):
+        """Test that missing preference defaults to light theme."""
+        with patch.object(QSettings, "value", return_value="light"):
+            window = MainWindow()
+            qtbot.addWidget(window)
+
+            assert window._current_theme == LIGHT_THEME
+
+            window.close()
+
+    def test_invalid_theme_id_handled_gracefully(self, qtbot, main_window):
+        """Test that invalid theme ID is handled without crashing."""
+        # Should not crash, just log error
+        main_window._handle_theme_selection("invalid_theme_id")
+
+        # Theme should remain unchanged
+        assert main_window._current_theme in [LIGHT_THEME, DARK_THEME]

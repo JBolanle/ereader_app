@@ -6,11 +6,12 @@ as the container for all UI components.
 
 import logging
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction, QKeySequence, QShortcut
+from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
 from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QVBoxLayout, QWidget
 
 from ereader.controllers.reader_controller import ReaderController
+from ereader.models.theme import AVAILABLE_THEMES, DEFAULT_THEME, Theme
 from ereader.views.book_viewer import BookViewer
 from ereader.views.navigation_bar import NavigationBar
 
@@ -34,6 +35,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("E-Reader")
         self.setGeometry(100, 100, 800, 600)  # x, y, width, height
 
+        # Initialize theme state
+        self._current_theme: Theme = DEFAULT_THEME
+
         # Create controller
         self._controller = ReaderController()
 
@@ -56,18 +60,21 @@ class MainWindow(QMainWindow):
         self._setup_status_bar()
         self._setup_keyboard_shortcuts()
 
+        # Load and apply saved theme preference
+        self._load_theme_preference()
+
         logger.debug("MainWindow initialized successfully")
 
     def _setup_menu_bar(self) -> None:
         """Create and configure the menu bar."""
         logger.debug("Setting up menu bar")
 
-        # Create File menu
         menu_bar = self.menuBar()
         if menu_bar is None:
             logger.error("Failed to get menu bar")
             return
 
+        # Create File menu
         file_menu = menu_bar.addMenu("&File")
 
         # Add "Open" action
@@ -86,6 +93,32 @@ class MainWindow(QMainWindow):
         quit_action.setStatusTip("Exit the application")
         quit_action.triggered.connect(self.close)
         file_menu.addAction(quit_action)
+
+        # Create View menu
+        view_menu = menu_bar.addMenu("&View")
+
+        # Create Theme submenu
+        theme_menu = view_menu.addMenu("&Theme")
+
+        # Create action group for radio button behavior
+        theme_action_group = QActionGroup(self)
+        theme_action_group.setExclusive(True)
+
+        # Add theme actions
+        for theme_id, theme in AVAILABLE_THEMES.items():
+            theme_action = QAction(theme.name, self)
+            theme_action.setCheckable(True)
+            theme_action.setData(theme_id)  # Store theme ID for retrieval
+            theme_action.triggered.connect(
+                lambda checked, tid=theme_id: self._handle_theme_selection(tid)
+            )
+            theme_action_group.addAction(theme_action)
+            theme_menu.addAction(theme_action)
+
+            # Store action for later reference (to set checked state)
+            if not hasattr(self, "_theme_actions"):
+                self._theme_actions: dict[str, QAction] = {}
+            self._theme_actions[theme_id] = theme_action
 
         logger.debug("Menu bar setup complete")
 
@@ -236,3 +269,77 @@ class MainWindow(QMainWindow):
         end_shortcut.activated.connect(self._book_viewer.scroll_to_bottom)
 
         logger.debug("Keyboard shortcuts configured")
+
+    def _handle_theme_selection(self, theme_id: str) -> None:
+        """Handle theme selection from View menu.
+
+        Args:
+            theme_id: ID of the selected theme (e.g., "light", "dark").
+        """
+        logger.debug("Theme selected: %s", theme_id)
+
+        theme = AVAILABLE_THEMES.get(theme_id)
+        if theme is None:
+            logger.error("Invalid theme ID: %s", theme_id)
+            return
+
+        # Apply the theme
+        self._apply_theme(theme)
+
+        # Save preference
+        self._save_theme_preference(theme_id)
+
+    def _apply_theme(self, theme: Theme) -> None:
+        """Apply a theme to all UI components.
+
+        Args:
+            theme: The theme to apply.
+        """
+        logger.debug("Applying theme: %s", theme.name)
+
+        # Update current theme
+        self._current_theme = theme
+
+        # Apply to book viewer
+        self._book_viewer.apply_theme(theme)
+
+        # Apply to status bar
+        status_bar = self.statusBar()
+        if status_bar is not None:
+            status_bar.setStyleSheet(f"""
+                QStatusBar {{
+                    background-color: {theme.status_bg};
+                    color: {theme.text};
+                }}
+            """)
+
+        logger.debug("Theme applied: %s", theme.name)
+
+    def _load_theme_preference(self) -> None:
+        """Load saved theme preference from QSettings and apply it."""
+        logger.debug("Loading theme preference")
+
+        settings = QSettings("EReader", "EReader")
+        theme_id = settings.value("theme", "light")  # Default to "light"
+
+        logger.debug("Loaded theme preference: %s", theme_id)
+
+        theme = AVAILABLE_THEMES.get(theme_id, DEFAULT_THEME)
+        self._apply_theme(theme)
+
+        # Update menu checkboxes
+        if hasattr(self, "_theme_actions") and theme_id in self._theme_actions:
+            self._theme_actions[theme_id].setChecked(True)
+
+    def _save_theme_preference(self, theme_id: str) -> None:
+        """Save theme preference to QSettings.
+
+        Args:
+            theme_id: ID of the theme to save (e.g., "light", "dark").
+        """
+        logger.debug("Saving theme preference: %s", theme_id)
+
+        settings = QSettings("EReader", "EReader")
+        settings.setValue("theme", theme_id)
+
+        logger.debug("Theme preference saved")
