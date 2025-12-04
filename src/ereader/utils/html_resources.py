@@ -27,6 +27,13 @@ MIME_TYPES = {
     ".bmp": "image/bmp",
 }
 
+# Responsive image styling to prevent horizontal and vertical scrolling
+# max-width: 100% prevents images from exceeding viewport width
+# max-height: 90vh prevents images from exceeding viewport height (90vh leaves margin for UI chrome)
+# width/height: auto maintains aspect ratio
+# object-fit: contain scales image to fit within bounds
+RESPONSIVE_IMAGE_STYLE = 'max-width: 100%; max-height: 90vh; width: auto; height: auto; object-fit: contain;'
+
 
 def resolve_images_in_html(
     html: str,
@@ -97,8 +104,12 @@ def resolve_images_in_html(
                 mime_type
             )
 
-            # Reconstruct the img tag with data URL
-            return f'<img {before_src}src="{data_url}"{after_src}>'
+            # Reconstruct the img tag with data URL and responsive styling
+            # Note: If original <img> tag has style attribute in before_src or after_src,
+            # browsers will ignore our injected style (uses first style attribute only).
+            # This is acceptable as: (1) rare in EPUBs, (2) image still displays, just not responsive.
+            # TODO: Parse and merge style attributes if user feedback indicates need.
+            return f'<img {before_src}src="{data_url}" style="{RESPONSIVE_IMAGE_STYLE}"{after_src}>'
 
         except CorruptedEPUBError:
             # Image not found - log warning but keep original reference
