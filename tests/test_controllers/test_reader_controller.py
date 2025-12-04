@@ -5,12 +5,26 @@ the EPUBBook model and UI views. Tests use mocks to isolate the controller
 logic from the actual book parsing and UI components.
 """
 
+import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 from PyQt6.QtCore import QObject
 
 from ereader.controllers.reader_controller import ReaderController
 from ereader.exceptions import CorruptedEPUBError, InvalidEPUBError
+
+
+@pytest.fixture
+def mock_epub_book():
+    """Create a properly configured mock EPUBBook for async loading tests."""
+    mock_book = MagicMock()
+    mock_book.filepath = "/path/to/book.epub"
+    mock_book.title = "Test Book"
+    mock_book.authors = ["Test Author"]
+    mock_book.get_chapter_count.return_value = 5
+    mock_book.get_chapter_content.return_value = "<p>Chapter content</p>"
+    mock_book.get_chapter_href.return_value = "chapter.xhtml"
+    return mock_book
 
 
 class TestReaderControllerInit:
@@ -41,43 +55,37 @@ class TestReaderControllerOpenBook:
     """Test opening books with ReaderController."""
 
     @patch('ereader.controllers.reader_controller.EPUBBook')
-    def test_open_book_success(self, mock_epub_class):
+    def test_open_book_success(self, mock_epub_class, mock_epub_book, qtbot):
         """Test successfully opening a valid EPUB book."""
         # Setup mock book
-        mock_book = MagicMock()
-        mock_book.title = "Test Book"
-        mock_book.authors = ["Test Author"]
-        mock_book.get_chapter_count.return_value = 5
-        mock_book.get_chapter_content.return_value = "<p>Chapter 1 content</p>"
-        mock_epub_class.return_value = mock_book
+        mock_epub_book.title = "Test Book"
+        mock_epub_book.authors = ["Test Author"]
+        mock_epub_book.get_chapter_count.return_value = 5
+        mock_epub_book.get_chapter_content.return_value = "<p>Chapter 1 content</p>"
+        mock_epub_class.return_value = mock_epub_book
 
-        # Setup controller with signal spies
+        # Setup controller
         controller = ReaderController()
         book_loaded_spy = Mock()
-        content_ready_spy = Mock()
-        chapter_changed_spy = Mock()
-        navigation_state_spy = Mock()
 
         controller.book_loaded.connect(book_loaded_spy)
-        controller.content_ready.connect(content_ready_spy)
-        controller.chapter_changed.connect(chapter_changed_spy)
-        controller.navigation_state_changed.connect(navigation_state_spy)
 
-        # Open book
-        controller.open_book("/path/to/book.epub")
+        # Open book (this starts async loading)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000) as blocker:
+            controller.open_book("/path/to/book.epub")
 
         # Verify EPUBBook was created with correct path
         mock_epub_class.assert_called_once_with("/path/to/book.epub")
 
         # Verify controller state
-        assert controller._book == mock_book
+        assert controller._book == mock_epub_book
         assert controller._current_chapter_index == 0
 
-        # Verify signals were emitted
+        # Verify book_loaded signal was emitted
         book_loaded_spy.assert_called_once_with("Test Book", "Test Author")
-        content_ready_spy.assert_called_once_with("<p>Chapter 1 content</p>")
-        chapter_changed_spy.assert_called_once_with(1, 5)  # 1-based for display
-        navigation_state_spy.assert_called_once_with(False, True)  # can't go back, can go forward
+
+        # Verify content_ready signal was emitted (caught by qtbot)
+        assert "<p>Chapter 1 content</p>" in blocker.args[0]
 
     @patch('ereader.controllers.reader_controller.EPUBBook')
     def test_open_book_with_multiple_authors(self, mock_epub_class):

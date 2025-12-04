@@ -11,8 +11,8 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from ereader.exceptions import EReaderError
 from ereader.models.epub import EPUBBook
+from ereader.utils.async_loader import AsyncChapterLoader
 from ereader.utils.cache_manager import CacheManager
-from ereader.utils.html_resources import resolve_images_in_html
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,9 @@ class ReaderController(QObject):
             image_max_memory_mb=50,
             total_memory_threshold_mb=150,
         )
+
+        # Track current async loader (for cancellation)
+        self._current_loader: AsyncChapterLoader | None = None
 
         logger.debug("ReaderController initialized")
 
@@ -160,11 +163,10 @@ class ReaderController(QObject):
             logger.debug("Already at first chapter, cannot go back")
 
     def _load_chapter(self, index: int) -> None:
-        """Load and display a specific chapter.
+        """Load and display a specific chapter using async loading.
 
-        Fetches the chapter content from the book model and emits signals
-        to update the UI with the new content and navigation state.
-        Uses LRU cache to avoid re-rendering recently viewed chapters.
+        Creates a background thread to load chapter content without blocking
+        the UI. Shows loading indicator while loading (future enhancement).
 
         Args:
             index: Zero-based chapter index to load.
@@ -174,72 +176,32 @@ class ReaderController(QObject):
             return
 
         try:
-            logger.debug("Loading chapter %d", index)
+            logger.debug("Starting async load for chapter %d", index)
 
-            # Generate cache key
-            cache_key = f"{self._book.filepath}:{index}"
+            # Cancel any pending load
+            if self._current_loader is not None and self._current_loader.isRunning():
+                logger.debug("Cancelling previous async load")
+                self._current_loader.cancel()
+                self._current_loader.wait(100)  # Wait up to 100ms for cleanup
 
-            # Try rendered chapters cache first
-            cached_html = self._cache_manager.rendered_chapters.get(cache_key)
-            if cached_html is not None:
-                logger.debug("Using cached rendered chapter %d", index)
-                content = cached_html
-            else:
-                # Cache miss - try raw content cache
-                logger.debug("Rendered cache miss - checking raw cache for chapter %d", index)
+            # Create async loader
+            self._current_loader = AsyncChapterLoader(
+                book=self._book,
+                cache_manager=self._cache_manager,
+                chapter_index=index,
+                parent=self,
+            )
 
-                # Get chapter href first (needed for image resolution)
-                chapter_href = self._book.get_chapter_href(index)
+            # Connect signals
+            self._current_loader.content_ready.connect(self._on_content_ready)
+            self._current_loader.error_occurred.connect(self._on_loader_error)
+            self._current_loader.finished.connect(self._on_loader_finished)
 
-                # Try raw content cache
-                cached_raw = self._cache_manager.raw_chapters.get(cache_key)
-                if cached_raw is not None:
-                    logger.debug("Using cached raw chapter %d", index)
-                    raw_content = cached_raw
-                else:
-                    # Complete miss - load from book
-                    logger.debug("Complete cache miss - loading chapter %d from book", index)
-                    raw_content = self._book.get_chapter_content(index)
-                    logger.debug(
-                        "Chapter content loaded (href: %s, length: %d bytes)",
-                        chapter_href,
-                        len(raw_content)
-                    )
+            # TODO: Show loading indicator (emit signal to UI)
+            # self.loading_started.emit()
 
-                    # Store raw content in cache
-                    self._cache_manager.raw_chapters.set(cache_key, raw_content)
-                    logger.debug("Raw chapter %d cached", index)
-
-                # Resolve image references in HTML
-                # Pass chapter href so images are resolved relative to the chapter file
-                content = resolve_images_in_html(raw_content, self._book, chapter_href=chapter_href)
-                logger.debug("Image resources resolved, final length: %d bytes", len(content))
-
-                # Store rendered content in cache
-                self._cache_manager.rendered_chapters.set(cache_key, content)
-                logger.debug("Rendered chapter %d cached", index)
-
-            # Log cache statistics
-            self._cache_manager.log_stats()
-
-            # Check memory usage and log warnings if needed
-            self._cache_manager.check_memory_threshold()
-
-            # Emit content to views
-            self.content_ready.emit(content)
-
-            # Reset scroll percentage (new chapter always starts at top)
-            self._current_scroll_percentage = 0.0
-
-            # Update chapter position info
-            total_chapters = self._book.get_chapter_count()
-            self.chapter_changed.emit(index + 1, total_chapters)  # 1-based for display
-
-            # Emit progress update
-            self._emit_progress_update()
-
-            # Update navigation button states
-            self._update_navigation_state()
+            # Start async loading
+            self._current_loader.start()
 
         except IndexError:
             error_msg = f"Chapter {index + 1} does not exist"
@@ -255,6 +217,65 @@ class ReaderController(QObject):
             error_msg = f"Unexpected error loading chapter {index + 1}: {e}"
             logger.exception(error_msg)
             self.error_occurred.emit("Error", error_msg)
+
+    def _on_content_ready(self, html: str) -> None:
+        """Handle content_ready signal from AsyncChapterLoader.
+
+        This runs on the UI thread via Qt's signal/slot mechanism.
+
+        Args:
+            html: Rendered HTML with resolved images.
+        """
+        logger.debug("Content ready, emitting to views")
+
+        # TODO: Hide loading indicator
+        # self.loading_finished.emit()
+
+        # Emit content to views (BookViewer will call setHtml)
+        self.content_ready.emit(html)
+
+        # Reset scroll percentage (new chapter always starts at top)
+        self._current_scroll_percentage = 0.0
+
+        # Update chapter position info
+        if self._book is not None:
+            total_chapters = self._book.get_chapter_count()
+            self.chapter_changed.emit(self._current_chapter_index + 1, total_chapters)
+
+            # Emit progress update
+            self._emit_progress_update()
+
+            # Update navigation button states
+            self._update_navigation_state()
+
+            # Log cache statistics
+            self._cache_manager.log_stats()
+
+            # Check memory usage
+            self._cache_manager.check_memory_threshold()
+
+    def _on_loader_error(self, title: str, message: str) -> None:
+        """Handle error_occurred signal from AsyncChapterLoader.
+
+        Args:
+            title: Error dialog title.
+            message: Error message.
+        """
+        logger.error("Async loader error: %s - %s", title, message)
+
+        # TODO: Hide loading indicator
+        # self.loading_finished.emit()
+
+        # Forward error to UI
+        self.error_occurred.emit(title, message)
+
+    def _on_loader_finished(self) -> None:
+        """Handle finished signal from AsyncChapterLoader.
+
+        Cleanup when thread completes (success or error).
+        """
+        logger.debug("Async loader finished")
+        # Thread will be garbage collected when no longer referenced
 
     def _update_navigation_state(self) -> None:
         """Update the navigation button enabled/disabled state.
