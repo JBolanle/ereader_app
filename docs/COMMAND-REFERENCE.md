@@ -31,8 +31,30 @@ See [CLAUDE.md](../CLAUDE.md) for complete code standards and architecture princ
 /pm "Break down the PDF support feature into tasks"
 ```
 
+### `/ux` — User Experience Designer
+**When to use**: Designing user-facing features, planning interactions, researching conventions
+
+**UX is not just UI**: This command handles visual interfaces, user workflows, interaction patterns, error handling, information architecture, and feature decisions.
+
+**Modes**:
+- **Design**: Plan user interactions and layouts
+- **Evaluate**: Critique existing UI/UX for usability
+- **Patterns**: Research and apply established UX patterns
+- **Flows**: Map user journeys and task flows
+- **Research**: Investigate user needs and conventions to inform decisions
+
+```
+/ux design "the book library view"
+/ux evaluate "check usability of current navigation"
+/ux research "what keyboard shortcuts should we support?"
+/ux flows "map the user journey for opening a book"
+/ux patterns "pagination in e-readers"
+```
+
 ### `/architect` — System Architect
 **When to use**: Making technical decisions, designing components, evaluating libraries
+
+**Note**: For user-facing features, use `/ux` first to design the interaction, then `/architect` to design the technical structure to support that UX.
 
 **Enhanced thinking**: For important architectural decisions, the architect uses extended thinking:
 - Standard decisions: Natural thinking about tradeoffs
@@ -246,15 +268,32 @@ This project follows specific patterns for different types of work. Understandin
    - Improve code quality while keeping tests green
    - Commit: `feat: implement [feature]`
 
-### Pattern 3: Visual Iteration (UI/UX)
-**Use for:** UI components, layouts, visual features
+### Pattern 3: UX-First Development
+**Use for:** UI components, user workflows, interaction patterns, any feature users interact with
 
 **Flow:**
-1. Implement visual feature in code
-2. Capture screenshot or observe result
-3. Compare against design mock or existing patterns
-4. Make incremental adjustments
-5. Repeat until result matches expectations
+1. **Design UX first** (use `/ux`)
+   - For UI/visual: `/ux design` to plan layout and interactions
+   - For workflows: `/ux flows` to map user journeys
+   - For decisions: `/ux research` to investigate conventions
+   - Get user approval on UX approach
+
+2. **Plan architecture** (use `/architect` if needed)
+   - Design technical structure to support the UX
+   - Data models, state management, caching strategies
+
+3. **Implement** following both designs
+   - UX design guides user experience
+   - Architecture guides technical structure
+   - Run tests frequently
+
+4. **Evaluate usability** (use `/ux evaluate`)
+   - Check implementation matches UX design
+   - Identify usability issues
+
+5. **Review and iterate**
+   - `/code-review` for code quality
+   - Fix issues from both UX and code review
 
 ### Using Subagents Effectively
 
@@ -275,9 +314,29 @@ Subagents preserve main context while investigating specific questions:
 
 ## Common Workflows
 
-### Starting a New Feature (Learning Mode)
+### Starting a New UI Feature (Learning Mode)
 ```
 /pm "Create spec for [feature]"                              # Get spec and issues
+/ux design "[feature name]"                                  # Design user experience
+# Review and approve UX design
+/architect "Design the component"                            # Get architecture (if needed)
+/mentor "Explain what I need to know"                        # Learn the concepts
+/branch "feature/[name]"                                     # Create branch
+# Use a subagent to investigate existing patterns
+# ... implement yourself using UX-First or TDD pattern ...
+/hint "stuck on X"                                           # Get nudges when stuck
+/ux evaluate                                                 # Check usability
+/code-review                                                 # Get code feedback
+# ... fix issues ...
+/commit                                                      # Save work
+/pr                                                          # Open PR
+/wrapup                                                      # Document session
+```
+
+### Starting a Backend Feature (Learning Mode)
+```
+/pm "Create spec for [feature]"                              # Get spec and issues
+/architect "Design the component"                            # Get architecture
 /mentor "Explain what I need to know"                        # Learn the concepts
 /branch "feature/[name]"                                     # Create branch
 # Use a subagent to investigate existing patterns
@@ -293,9 +352,11 @@ Subagents preserve main context while investigating specific questions:
 ### Starting a New Feature (Faster Mode)
 ```
 /pm "Create spec for [feature]"                              # Get spec and issues
+/ux "[mode] [feature]"                                       # UX design if user-facing
 /architect "Design the component"                            # Get architecture
 "Use a subagent to check existing patterns for X"            # Quick investigation
 /developer "Implement issue #N using Explore→Plan→Code"      # Delegate with pattern
+/ux evaluate                                                 # Check usability (if UI feature)
 /code-review                                                 # Review the code
 /pr                                                          # Open PR
 ```
@@ -347,9 +408,13 @@ Subagents preserve main context while investigating specific questions:
 | Get unstuck (debug) | `/debug` |
 | Have code written for me | `/developer` |
 | Review my code | `/code-review` |
+| Check usability of UI | `/ux evaluate` |
 | Test my knowledge | `/quiz` |
 | Plan a feature | `/pm` |
+| Design user experience | `/ux` |
 | Design architecture | `/architect` |
+| Research UX conventions | `/ux research` |
+| Map user workflows | `/ux flows` |
 | Start new work | `/branch` |
 | See my git state | `/gh-status` |
 | Save my work | `/commit` |

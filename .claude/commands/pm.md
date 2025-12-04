@@ -204,28 +204,41 @@ Spec: [Link to spec if exists, or "needs spec"]
 ### Getting Started Workflow
 
 **If this is a NEW feature/component:**
-1. Use `/architect` to design the component structure
-2. Create/update spec in docs/specs/ if complex
-3. Use `/branch` to create a feature branch
-4. Use `/developer` to implement with full workflow
-5. Come back to `/pm` when done for assessment
+1. Consider UX implications:
+   - User-facing UI/visual elements? → Use `/ux design`
+   - User workflow/multi-step task? → Use `/ux flows`
+   - Feature prioritization or conventions? → Use `/ux research`
+   - Interaction pattern decision? → Use `/ux patterns`
+   - Pure backend/architecture only? → Skip to `/architect`
+2. Use `/architect` to design the component structure
+3. Create/update spec in docs/specs/ if complex
+4. Use `/branch` to create a feature branch
+5. Use `/developer` to implement with full workflow
+6. Use `/ux evaluate` if feature has UX aspects (verify usability)
+7. Come back to `/pm` when done for assessment
 
 **If this is ADDING to existing code:**
-1. Use `/mentor` if you want to learn about the area first
-2. Use `/branch` to create a feature branch
-3. Use `/developer` to implement
-4. Come back to `/pm` when done
+1. Consider if changes affect user experience:
+   - Changing how users interact? → Use `/ux design` or `/ux evaluate`
+   - Adding to existing workflow? → Use `/ux flows` to map
+   - Pure internal change? → Skip UX
+2. Use `/mentor` if you want to learn about the area first
+3. Use `/branch` to create a feature branch
+4. Use `/developer` to implement
+5. Come back to `/pm` when done
 
 **If this is a BUG fix:**
-1. Use `/branch` to create a fix/ branch
-2. Use `/debug` to investigate and fix
-3. Use `/commit` when fixed
-4. Use `/pr` to create PR
+1. If bug affects user experience, consider using `/ux evaluate` to identify UX issues
+2. Use `/branch` to create a fix/ branch
+3. Use `/debug` to investigate and fix
+4. Use `/commit` when fixed
+5. Use `/pr` to create PR
 
 **If this REQUIRES research/learning:**
-1. Use `/study` to deep dive into the topic
-2. Use `/mentor` for hands-on learning while building
-3. Then proceed with implementation using `/developer`
+1. For UX/user-facing decisions: Use `/ux research`
+2. For technical deep-dives: Use `/study`
+3. For hands-on learning while building: Use `/mentor`
+4. Then proceed with implementation using `/developer`
 
 ### Upcoming Queue
 1. [Next item after that]
@@ -346,6 +359,10 @@ As PM, help users navigate the command ecosystem by recommending appropriate com
 - `/quiz` - When you want to test your understanding
 - `/hint` - When you're stuck but want to figure it out yourself
 
+### UX & Design
+- `/ux` - Design user experiences (not just UI - includes workflows, interactions, error handling, patterns, research)
+  - Use for: UI features, user workflows, format support decisions, error handling, interaction patterns, feature discoverability
+
 ### Implementation & Development
 - `/developer` - Full feature implementation workflow (issue → code → test → commit)
 - `/sprint` - Complete feature cycle (plan → implement → review → PR)
@@ -376,10 +393,14 @@ As PM, help users navigate the command ecosystem by recommending appropriate com
 
 | Situation | Recommend |
 |-----------|-----------|
-| Starting new feature | `/branch` → `/architect` (if needed) → `/developer` |
+| Starting new UI feature | `/branch` → `/ux` → `/architect` (if needed) → `/developer` |
+| Starting new backend feature | `/branch` → `/architect` (if needed) → `/developer` |
+| Feature needs user research | `/ux research` before design/implementation |
+| Deciding on user interaction | `/ux patterns` or `/ux design` |
 | Learning new concept | `/study` or `/mentor` first, then implementation |
 | Stuck on implementation | `/hint` if want to figure it out, `/mentor` if need explanation |
 | Bug in code | `/debug` |
+| UX/usability issue | `/ux evaluate` to identify issues |
 | During development | `/test` frequently to verify quality |
 | Ready to commit | `/test` → `/code-review` → `/commit` |
 | Ready for PR | `/test` → `/code-review` → `/pr` |

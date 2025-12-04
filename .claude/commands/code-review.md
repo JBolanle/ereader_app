@@ -80,7 +80,24 @@ Note: Use /test output to inform this section. Focus on test quality and complet
 - Safe file handling?
 - No hardcoded secrets?
 
-### 8. Documentation
+### 8. Usability (for user-facing changes)
+**Note:** For comprehensive UX evaluation, use `/ux evaluate` instead. This section covers basic usability checks during code review.
+
+- Does implementation match UX design (if one exists)?
+- Are interaction patterns consistent with e-reader conventions?
+- Are keyboard shortcuts implemented and documented?
+- Are touch targets adequately sized (44x44px minimum)?
+- Are error messages clear and actionable?
+- Is loading/progress feedback provided for slow operations?
+- Are accessibility basics covered (focus states, labels)?
+
+**When to use `/ux evaluate` instead:**
+- For detailed usability assessment
+- To compare against UX designs
+- To identify UX improvements
+- For user-facing features requiring screenshots/testing
+
+### 9. Documentation
 - Is the code self-documenting?
 - Are complex parts explained?
 - Is CLAUDE.md still accurate?

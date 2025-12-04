@@ -21,6 +21,49 @@ Read CLAUDE.md for project context and code standards.
 
 **Do not open a PR yet—wait for review instructions.**
 
+## When to Consult UX (Before Implementation)
+
+Before starting implementation, consider if UX design would help. Use `/ux` if:
+
+### UI/Visual Features
+- Any user-facing interface elements (buttons, layouts, panels)
+- Visual information display (book metadata, reading progress)
+- Screen layouts and component arrangement
+
+### User Workflows
+- Multi-step user tasks (opening books, managing library, navigation)
+- Task flows that span multiple screens or states
+- Features that change how users accomplish goals
+
+### Interaction Patterns
+- Keyboard shortcuts and navigation
+- Mouse/touch interactions
+- Gestures and controls
+
+### Error Handling & Feedback
+- How errors are presented to users
+- Error recovery flows
+- Loading states and progress indicators
+- System feedback and confirmations
+
+### Information Architecture
+- How data is organized or displayed
+- Content hierarchy and structure
+- Library organization (tags, collections, sorting)
+
+### Feature Decisions
+- Which file formats to support and prioritize
+- Feature discoverability (how users find features)
+- Accessibility considerations
+
+### When to Skip UX
+- Pure backend logic with no user-facing impact
+- Internal refactoring that doesn't change behavior
+- Infrastructure or build system changes
+- Bug fixes that restore intended behavior (unless UX should be improved)
+
+**Rule of thumb:** If a user will directly interact with it or see the results, consider using `/ux` first.
+
 ## Workflow Selection
 
 ### For Simple Tasks (< 1 hour, clear requirements)

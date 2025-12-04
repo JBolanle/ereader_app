@@ -317,15 +317,34 @@ Before requesting review:
    - Run `/test` after each refactor
    - Commit: `feat: implement [feature]`
 
-### Pattern 3: Visual Iteration (UI/UX work)
-**Use for:** UI components, layouts, visual features
+### Pattern 3: UX-First Development (User-Facing Features)
+**Use for:** UI components, user workflows, interaction patterns, any feature users interact with
 
-1. Implement visual feature in code
-2. Capture screenshot or observe result
-3. Compare against design mock or existing patterns
-4. Make incremental adjustments
-5. Repeat until result matches expectations
-6. Keep iterations small and focused
+1. **Design UX first** (use `/ux`)
+   - For UI/visual: Use `/ux design` to plan layout and interactions
+   - For workflows: Use `/ux flows` to map user journeys
+   - For decisions: Use `/ux research` to investigate conventions
+   - Get user approval on UX approach
+
+2. **Plan architecture** (use `/architect` if needed)
+   - Design technical structure to support the UX
+   - Data models, state management, caching strategies
+   - Document architectural decisions
+
+3. **Implement** following both designs
+   - UX design guides user experience
+   - Architecture guides technical structure
+   - Run `/test` frequently during development
+
+4. **Evaluate usability** (use `/ux evaluate`)
+   - Check implementation matches UX design
+   - Identify usability issues
+   - Verify accessibility basics
+
+5. **Review and iterate**
+   - Use `/code-review` for code quality
+   - Fix issues from both UX and code review
+   - Iterate until both quality and usability meet standards
 
 ### Using Subagents Effectively
 Subagents preserve main context while investigating specific questions:
@@ -511,6 +530,7 @@ ereader-app/
 |---------|---------|
 | `/architect` | Make architectural decisions; design component interfaces |
 | `/pm` | Product management and workflow orchestration; guides you through the development lifecycle |
+| `/ux` | Design user experiences (UI, workflows, interactions, error handling, research); not just visual design |
 
 ### Code Quality & Testing
 | Command | Purpose |

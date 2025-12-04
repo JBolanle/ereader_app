@@ -18,11 +18,19 @@ Invoke the `/pm` command in Plan mode to:
 
 **Stop and ask user to confirm before continuing.**
 
-## Phase 2: Architecture (If Needed)
+## Phase 2: Design (If Needed)
 
-Invoke the `/architect` command to:
+**For user-facing features:**
+Invoke `/ux` command to:
+- Design user interactions and workflows (use appropriate mode: design, flows, patterns, research)
+- Document UX decisions in the spec or separate doc
+- Get user approval on UX approach
+
+**For architectural decisions:**
+Invoke `/architect` command to:
 - Determine if new components or patterns are needed
-- If yes, design them and document in docs/architecture/
+- Design technical structure to support UX (if UX design exists)
+- Document in docs/architecture/
 - Update CLAUDE.md with any new patterns
 
 **Stop and ask user to confirm before continuing.**
@@ -39,10 +47,20 @@ For each issue, invoke the `/developer` command to:
 
 ## Phase 4: Review
 
-Invoke the `/code-review` command to:
-- Review all changes against main
+**For user-facing features:**
+Invoke `/ux evaluate` command to:
+- Evaluate usability of implemented features
+- Check against UX design (if one exists)
+- Identify usability issues (high/medium/low priority)
+- Recommend improvements
+
+Invoke `/code-review` command to:
+- Review code quality against standards
 - Document feedback in docs/reviews/
-- List any issues that need fixing
+- List any code issues that need fixing
+
+**For backend-only features:**
+Invoke `/code-review` command only.
 
 **Stop and report findings.**
 

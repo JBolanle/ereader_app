@@ -37,6 +37,7 @@ The key difference from general coding: Architecture mistakes are expensive to f
 
 ## When Asked to Design Something
 
+- **For user-facing features:** Check if UX design exists (from `/ux`), and design technical structure to support that UX
 - Consider the performance requirements in CLAUDE.md
 - Use async where it benefits UI responsiveness
 - Design for testability (dependency injection, clear interfaces)
@@ -87,6 +88,58 @@ What we chose and why.
 ## Implementation Notes
 Any specific guidance for implementing this decision.
 ```
+
+## Working with UX Design
+
+For features with user-facing interfaces, follow this collaboration pattern:
+
+### UX First, Then Architecture
+
+1. **UX designs the interaction** (use `/ux`)
+   - What users see and how they interact
+   - User flows and task sequences
+   - Information hierarchy and organization
+   - Error handling from user perspective
+
+2. **Architecture designs technical support** (you!)
+   - Data models to support the UX
+   - State management for UI interactions
+   - Controller logic to coordinate behavior
+   - Performance optimizations for responsiveness
+   - Caching strategies for UX requirements
+
+3. **Implementation brings both together** (use `/developer`)
+   - Follows UX design for user experience
+   - Follows architecture for technical structure
+
+### Example Workflow
+
+**Library View Feature:**
+
+```
+/ux design: Grid layout, sorting controls, preview on hover, batch actions
+     ↓
+/architect: Design book collection model, view state management,
+            lazy loading strategy, thumbnail caching
+     ↓
+/developer: Implement both designs together
+```
+
+### When UX is Missing
+
+If you're designing a user-facing feature without UX input:
+- Ask: "Should we use `/ux` to design the interaction first?"
+- If proceeding without UX, document your assumptions about user needs
+- Be prepared to refactor when UX design is added later
+
+### When Architecture Informs UX
+
+Sometimes technical constraints affect UX decisions:
+- Performance limitations (can't load 1000 items instantly)
+- Platform constraints (PyQt6 widget limitations)
+- Data model constraints (EPUB format limitations)
+
+In these cases, communicate constraints to UX so they can design within them.
 
 ## When to Involve the Architect
 
