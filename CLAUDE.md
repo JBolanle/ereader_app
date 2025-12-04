@@ -377,6 +377,8 @@ For complex implementations:
   - [x] Qt Signals and Slots (custom signals, signal chains)
   - [x] QShortcut system for keyboard handling
   - [x] QScrollBar API and percentage calculations
+  - [x] Responsive design with CSS (max-width, aspect-ratio)
+  - [x] Window resize handling and dynamic content updates
   - [ ] Complete widget library mastery
 - [x] Understand EPUB format well enough to explain it (structure understood)
 - [ ] Learn proper Python packaging for distribution
@@ -386,6 +388,7 @@ For complex implementations:
   - [x] Test organization (unit vs integration)
   - [x] pytest-qt for professional UI testing
   - [x] Signal testing with qtbot.waitSignal()
+  - [x] 91% test coverage (169 tests)
   - [ ] Advanced mocking patterns
 - [x] Professional Git/GitHub workflow (branching, PRs, code review, merging)
 
@@ -467,15 +470,25 @@ These things I must implement myself (for learning):
   - [x] Overall coverage: 86% → 91% (+5%)
   - [x] Comprehensive pytest-qt patterns documentation
   - [x] All 169 tests passing with zero linting issues
-- [ ] Next steps (MVP Completion)
-  - [ ] Basic reading themes (light/dark mode)
-- [ ] Post-MVP Enhancements
-  - [ ] True page-based pagination system (Issue #31)
-    - Replace virtual scrolling with calculated pages
-    - Stable page numbers
-    - Toggle between scroll and page modes
-  - [ ] Bookmarks feature
-  - [ ] PDF support
+- [x] **Responsive image sizing** (COMPLETED - PR #33) ✅
+  - [x] CSS max-width: 100% for all images
+  - [x] Maintains aspect ratios
+  - [x] Smooth scaling during window resize
+  - [x] Professional image rendering experience
+
+### Current Sprint (MVP Completion)
+- [ ] Basic reading themes (light/dark mode)
+  - Will include theme switching
+  - Persistent theme preference
+  - Professional color schemes
+
+### Post-MVP Enhancements
+- [ ] True page-based pagination system (Issue #31)
+  - Replace virtual scrolling with calculated pages
+  - Stable page numbers
+  - Toggle between scroll and page modes
+- [ ] Bookmarks feature
+- [ ] PDF support
 
 ## Decisions Log
 
@@ -503,6 +516,7 @@ Record architectural decisions here as they're made:
 | 2025-12-04 | Scroll amounts: 50% for arrows, 100% for Page keys | UX research showed 50% overlap preserves reading context while arrows feel responsive. Full page for Page keys follows standard desktop conventions. | docs/architecture/keyboard-navigation-architecture.md |
 | 2025-12-04 | Signal connection order: After content load | Connect scrollbar signals after initial content to prevent spurious emissions during initialization. Improves maintainability and initialization clarity. | Code review improvement |
 | 2025-12-04 | pytest-qt for UI testing | Migrate from manual Qt testing to pytest-qt for industry-standard UI testing. Benefits: reliable signal testing with qtbot.waitSignal(), automatic widget cleanup, better event loop control, eliminates race conditions. Improved views coverage from 0% to 88%. | docs/testing/pytest-qt-patterns.md |
+| 2025-12-04 | Responsive images with CSS | Use CSS max-width: 100% for responsive images instead of JavaScript-based resizing. Simpler implementation, smoother performance, standard web approach works perfectly in QTextBrowser. | PR #33 |
 
 ## File Structure
 

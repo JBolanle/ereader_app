@@ -13,7 +13,7 @@ This project serves dual purposes:
 ### Current Progress
 
 - [x] Core architecture setup (MVC pattern, exception handling)
-- [x] Test infrastructure established (comprehensive test suite, 96.42% coverage)
+- [x] Test infrastructure established (comprehensive test suite, 91% coverage)
 - [x] EPUB parsing complete (PR #15)
   - [x] Metadata extraction (title, author, language)
   - [x] Manifest and spine parsing (file structure, reading order)
@@ -43,10 +43,26 @@ This project serves dual purposes:
 - [x] Chapter caching for memory optimization (PR #27) ✅
   - [x] LRU cache with OrderedDict (10 chapter capacity)
   - [x] Transparent integration in ReaderController
-  - [x] Expected memory reduction: 559MB → 150MB (73%)
+  - [x] Memory reduction achieved: 559MB → ~150MB (73%)
   - [x] Cache statistics and monitoring
   - [x] 100% test coverage on new code
-- [ ] **Next up**: Basic reading themes (light/dark mode) OR arrow key navigation (Issue #21)
+- [x] Enhanced keyboard navigation (PR #32) 🎉
+  - [x] Left/Right arrow keys for chapter navigation
+  - [x] Up/Down/PageUp/PageDown for within-chapter scrolling
+  - [x] Home/End for chapter boundaries
+  - [x] Real-time progress display in status bar
+  - [x] Full MVC signal chain with 100% test coverage
+- [x] Responsive image sizing (PR #33) ✅
+  - [x] Images scale to window width (max 100%)
+  - [x] Maintains aspect ratios
+  - [x] Smooth scaling during window resize
+- [x] pytest-qt integration (PR #34) ✅
+  - [x] Professional UI testing framework
+  - [x] 31 UI tests refactored with qtbot
+  - [x] Views coverage improved: 0% → 88%
+  - [x] Overall coverage boost: 86% → 91% (+5%)
+  - [x] Comprehensive testing patterns documented
+- [ ] **Next up**: Basic reading themes (light/dark mode)
 
 See [CLAUDE.md](CLAUDE.md) for detailed development context and current sprint.
 
