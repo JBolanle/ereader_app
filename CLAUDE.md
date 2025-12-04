@@ -8,6 +8,9 @@ This project serves dual purposes:
 1. **Learning**: Master modern Python development, testing, and architecture
 2. **Practical**: Build a working e-reader I can actually use
 
+**Current Status**: ✅ **MVP COMPLETE** (91% test coverage, 195 tests passing)
+- See [MVP Completion Summary](docs/mvp-completion.md) for full implementation history
+
 ## Quick Command Reference
 
 ### Running Tests & Quality Checks
@@ -15,17 +18,14 @@ This project serves dual purposes:
 - Run all tests: `uv run pytest`
 - Run specific test: `uv run pytest tests/test_models/test_book.py`
 - Run with coverage: `uv run pytest --cov=src/ereader --cov-report=term-missing`
-- Coverage with threshold: `uv run pytest --cov=src/ereader --cov-fail-under=80`
 - Run linter: `uv run ruff check src/`
 - Auto-fix linting: `uv run ruff check --fix src/`
-- Type checking: `uv run mypy src/` (when enabled)
 
 ### Package Management
 - Add dependency: `uv add package-name`
 - Add dev dependency: `uv add --dev package-name`
 - Update dependencies: `uv sync`
 - Run Python script: `uv run python script.py`
-- Run module: `uv run python -m ereader`
 
 ### Git Operations (via gh CLI when possible)
 - View issue: `gh issue view [number]`
@@ -39,16 +39,6 @@ This project serves dual purposes:
 - Package manager: `uv` (NEVER use pip directly)
 - Test framework: pytest
 - Linter: ruff
-- Type checker: mypy (optional, to be added later)
-
-## Prerequisites
-
-Before starting, ensure you have:
-- **Python 3.11+**: `python --version`
-- **uv**: Install from https://github.com/astral-sh/uv
-- **git**: `git --version`
-- **GitHub CLI**: `gh --version` (install from https://cli.github.com)
-  - Authenticate with: `gh auth login`
 
 ## Tech Stack
 
@@ -56,9 +46,8 @@ Before starting, ensure you have:
 - **Version Control**: git + GitHub CLI (`gh`) for GitHub integration
 - **UI Framework**: PyQt6 (desktop GUI with native HTML rendering)
 - **Python Version**: 3.11+
-- **Testing**: pytest with async support
+- **Testing**: pytest with pytest-qt for UI testing
 - **Linting**: ruff
-- **Type Checking**: mypy (optional, introduce later)
 
 ## Important Constraints
 
@@ -73,16 +62,15 @@ CRITICAL - These rules are non-negotiable for code quality:
 - NEVER use bare `except:` clauses
 - ALWAYS use custom exceptions from `src/ereader/exceptions.py`
 - Log errors with context before raising
-- Handle exceptions at appropriate levels (don't catch too early)
+- Handle exceptions at appropriate levels
 
 **Testing:**
 - EVERY new function must have at least one test
 - Tests go in `tests/` mirroring the `src/` structure
-- Run `/test` frequently during development (not just before commits)
+- Run `/test` frequently during development
 - Test both happy path and edge cases
 - Maintain minimum 80% code coverage (target: 90%+)
 - Focus on meaningful coverage, not just hitting percentages
-- Professional standard: test critical paths thoroughly, edge cases appropriately
 
 **Code Style:**
 - NEVER use `print()` — use logging instead
@@ -94,7 +82,7 @@ CRITICAL - These rules are non-negotiable for code quality:
 **Async Usage:**
 - Use async/await for I/O operations that could block UI
 - Don't overuse async for CPU-bound operations
-- Follow asyncio best practices (no blocking calls in async functions)
+- Follow asyncio best practices
 
 ## Architecture Principles
 
@@ -115,69 +103,21 @@ CRITICAL - These rules are non-negotiable for code quality:
 
 ## Test Coverage Standards
 
-Maintain professional-grade test coverage using these guidelines:
+Maintain professional-grade test coverage:
 
 ### Coverage Thresholds
 - **Minimum**: 80% (enforced in tests)
 - **Target**: 90%+ (professional standard)
 - **Trend**: Coverage should never decrease without good reason
 
-### Coverage Quality Over Quantity
-Focus on **meaningful coverage**, not just hitting percentages:
+### What to Test
+✅ **Always Test:** User-facing features, data integrity operations, error handling for common scenarios, public APIs, business logic
 
-✅ **Always Test:**
-- User-facing features and critical paths
-- Data integrity operations (file I/O, parsing, etc.)
-- Error handling for common scenarios
-- Public APIs and interfaces
-- Business logic and algorithms
+🟡 **Test When Practical:** Edge cases with moderate probability, uncommon error scenarios, internal helpers in critical paths
 
-🟡 **Test When Practical:**
-- Edge cases with moderate probability
-- Error handling for uncommon scenarios
-- Internal helper functions used in critical paths
-
-⚪ **Document and Defer:**
-- Defensive logging and warnings
-- Error handling for malformed/corrupted data (requires extensive mocking)
-- Edge cases with very low probability
-- Code that would require disproportionate effort to test
-
-### Using the `/test` Command
-
-Run `/test` frequently during development:
-- **During coding**: After implementing a feature or fixing a bug
-- **Before committing**: Ensure all quality checks pass
-- **After refactoring**: Verify nothing broke
-
-The `/test` command runs:
-1. Full test suite with coverage reporting
-2. Coverage analysis against 80% threshold
-3. Linting checks (ruff)
-4. Detailed reporting on what's tested and what isn't
-
-### Evaluating Coverage Gaps
-
-When `/test` shows missing coverage, ask:
-
-1. **Is this critical?** (User-facing or data integrity)
-   - Yes → Write tests immediately
-   - No → Continue evaluation
-
-2. **What's the risk if it has bugs?**
-   - High → Write tests
-   - Low → Document and defer
-
-3. **What's the effort to test?**
-   - Low → Just write the test
-   - High → Weigh effort vs. risk
-
-4. **Is it defensive code?** (Logging, malformed input handling)
-   - Yes → Usually safe to defer
+⚪ **Document and Defer:** Defensive logging, edge cases with very low probability, code requiring disproportionate test effort
 
 ### Professional Standard
-
-This project follows professional software engineering practices:
 - Coverage is a quality metric, not a goal
 - Test what matters to users and system integrity
 - Document why certain code isn't tested
@@ -187,8 +127,8 @@ This project follows professional software engineering practices:
 ## Repository Etiquette
 
 ### Branch Naming
-- Feature work: `feature/short-description` (e.g., `feature/epub-metadata`)
-- Bug fixes: `fix/short-description` (e.g., `fix/memory-leak`)
+- Feature work: `feature/short-description`
+- Bug fixes: `fix/short-description`
 - Refactoring: `refactor/short-description`
 - Documentation: `docs/short-description`
 
@@ -204,16 +144,6 @@ type(scope): brief description
 
 **Types:** feat, fix, docs, style, refactor, test, chore
 
-**Good examples:**
-- `feat(epub): add metadata extraction from content.opf`
-- `fix(ui): prevent crash when book has no cover`
-- `test(models): add edge cases for empty chapters`
-
-### Merge Strategy
-- Squash and merge for feature branches (cleaner history)
-- Keep commits atomic and focused
-- One logical change per commit when possible
-
 ### Pull Request Requirements
 Before requesting review:
 - [ ] `/test` passes (tests + coverage 80%+ + linting)
@@ -222,44 +152,49 @@ Before requesting review:
 - [ ] Breaking changes noted in PR description
 - [ ] Related issue linked (Closes #123)
 
-### Code Review Process
-- Use `/code-review` for self-review before creating PR
-- Address all review comments or explain why not
-- Keep PRs focused and reasonably sized
-- Update PR description if scope changes
+## Current Phase: Post-MVP Enhancements
 
-## Target Features (Priority Order)
+**MVP Completed**: All core features shipped! 🎉
+- EPUB rendering with chapter navigation
+- Reading progress tracking
+- Light/dark themes
+- Image support with responsive sizing
+- Keyboard navigation
+- Chapter caching (memory optimized)
 
-### Core (MVP) - ✅ COMPLETED!
-1. [x] Open and render EPUB files (COMPLETED - PR #22)
-2. [x] Page/chapter navigation (COMPLETED - PR #22)
-3. [x] Reading progress tracking (COMPLETED - PR #22)
-4. [x] Basic reading themes (light/dark) (COMPLETED - PR #35)
+See [MVP Completion Summary](docs/mvp-completion.md) for full implementation details.
 
-### Important
-5. [ ] PDF support
-6. [ ] Bookmarks
-7. [ ] Annotations/highlights
-8. [ ] Library management (organize books)
+### Next Priority Features
 
-### Nice-to-Have
-9. [ ] TXT support
-10. [ ] Search within book
-11. [ ] Customizable fonts and sizing
-12. [ ] Reading statistics
+**High Priority:**
+1. [ ] True page-based pagination system (Issue #31)
+   - Replace virtual scrolling with calculated pages
+   - Stable page numbers
+   - Toggle between scroll and page modes
+2. [ ] Bookmarks feature
+3. [ ] PDF support
 
-### Future
-13. [ ] MOBI support
-14. [ ] Cloud sync
-15. [ ] Plugin architecture
+**Important:**
+4. [ ] Annotations/highlights
+5. [ ] Library management (organize books)
+
+**Nice-to-Have:**
+6. [ ] TXT support
+7. [ ] Search within book
+8. [ ] Customizable fonts and sizing
+9. [ ] Reading statistics
+
+**Future:**
+10. [ ] MOBI support
+11. [ ] Cloud sync
+12. [ ] Plugin architecture
 
 ## Performance Requirements
 
 - Page renders in <100ms
-- Memory usage <200MB for typical books
+- Memory usage <200MB for typical books (achieved via LRU caching)
 - Smooth scrolling and transitions
-- Background page pre-fetching
-- Cached page limit: 50 pages
+- Background page pre-fetching (future enhancement)
 
 ## Development Philosophy
 
@@ -273,94 +208,31 @@ Before requesting review:
 ### Pattern 1: Explore → Plan → Code → Commit
 **Use for:** Non-trivial features, new components, complex refactoring
 
-1. **Explore (understand first)**
-   - Read relevant existing code and understand patterns
-   - Check specs in `docs/specs/` if they exist
-   - Use subagents for focused investigations: "Use a subagent to investigate how we currently handle X"
-   - Ask clarifying questions before proceeding
-   - **DO NOT write code yet**
-
-2. **Plan (design the approach)**
-   - Create a written plan outlining the approach
-   - Consider: What files change? What tests are needed? What patterns to follow?
-   - For architectural decisions, document in `docs/architecture/`
-   - Review plan before implementation
-
-3. **Code (implement the solution)**
-   - Implement following the plan and code standards
-   - Run `/test` frequently during development
-   - Commit related changes together
-
-4. **Review & Commit (ensure quality)**
-   - Run `/test` to verify all quality checks pass
-   - Self-review with `/code-review`
-   - Write clear conventional commit message with `/commit`
-   - Push and create PR with `/pr` when ready
+1. **Explore** - Read relevant code, check specs, investigate with subagents
+2. **Plan** - Design approach, document architecture decisions
+3. **Code** - Implement following plan, run `/test` frequently
+4. **Review & Commit** - Self-review with `/code-review`, commit with `/commit`
 
 ### Pattern 2: Test-Driven Development (TDD)
 **Use for:** Clear input/output specifications, bug fixes, core algorithms
 
-1. **Write failing tests first**
-   - Write tests for functionality that doesn't exist yet
-   - Cover happy path, edge cases, and error conditions
-   - Run `/test` to confirm tests fail appropriately
-   - Commit tests: `test: add tests for [feature]`
-
-2. **Implement to pass tests**
-   - Write simplest code that makes tests pass
-   - Run `/test` after each small change
-   - Iterate until all tests pass
-   - DO NOT modify tests unless they have bugs
-
-3. **Refactor with safety**
-   - Improve code quality while keeping tests green
-   - Run `/test` after each refactor
-   - Commit: `feat: implement [feature]`
+1. **Write failing tests first** - Cover happy path, edge cases, errors
+2. **Implement to pass tests** - Simplest code that works
+3. **Refactor with safety** - Improve while keeping tests green
 
 ### Pattern 3: UX-First Development (User-Facing Features)
-**Use for:** UI components, user workflows, interaction patterns, any feature users interact with
+**Use for:** UI components, user workflows, interaction patterns
 
-1. **Design UX first** (use `/ux`)
-   - For UI/visual: Use `/ux design` to plan layout and interactions
-   - For workflows: Use `/ux flows` to map user journeys
-   - For decisions: Use `/ux research` to investigate conventions
-   - Get user approval on UX approach
-
-2. **Plan architecture** (use `/architect` if needed)
-   - Design technical structure to support the UX
-   - Data models, state management, caching strategies
-   - Document architectural decisions
-
-3. **Implement** following both designs
-   - UX design guides user experience
-   - Architecture guides technical structure
-   - Run `/test` frequently during development
-
-4. **Evaluate usability** (use `/ux evaluate`)
-   - Check implementation matches UX design
-   - Identify usability issues
-   - Verify accessibility basics
-
-5. **Review and iterate**
-   - Use `/code-review` for code quality
-   - Fix issues from both UX and code review
-   - Iterate until both quality and usability meet standards
+1. **Design UX first** - Use `/ux` to plan layout, flows, or research conventions
+2. **Plan architecture** - Use `/architect` to design technical structure
+3. **Implement** - Follow both UX and architecture designs
+4. **Evaluate usability** - Use `/ux evaluate` to check implementation
+5. **Review and iterate** - Use `/code-review` for code quality
 
 ### Using Subagents Effectively
-Subagents preserve main context while investigating specific questions:
-- "Use a subagent to investigate how EPUB spine ordering works in our current code"
-- "Use a subagent to check if we already have a caching pattern for page rendering"
-- Best used early in tasks to verify assumptions
+- "Use a subagent to investigate how EPUB spine ordering works"
+- Best used early to verify assumptions
 - Keeps main context focused on implementation
-
-### Iterative Improvement
-For complex implementations:
-1. Get something working first (even if imperfect)
-2. Test and identify specific improvements needed
-3. Make one targeted improvement at a time
-4. Verify each improvement helps
-5. Repeat until quality standards met
-6. Remember: "First version good, 2-3 iterations much better"
 
 ## Development Workflow
 
@@ -372,25 +244,17 @@ For complex implementations:
 
 ## Learning Goals
 
+**Active Focus:**
 - [ ] Understand async/await deeply (not just copy patterns)
-- [x] Be able to write PyQt/UI code from scratch (MAJOR PROGRESS)
-  - [x] Qt Signals and Slots (custom signals, signal chains)
-  - [x] QShortcut system for keyboard handling
-  - [x] QScrollBar API and percentage calculations
-  - [x] Responsive design with CSS (max-width, aspect-ratio)
-  - [x] Window resize handling and dynamic content updates
-  - [ ] Complete widget library mastery
-- [x] Understand EPUB format well enough to explain it (structure understood)
+- [ ] Complete PyQt widget library mastery
 - [ ] Learn proper Python packaging for distribution
-- [x] Master pytest and testing patterns (COMPLETED)
-  - [x] Integration tests for signal chains
-  - [x] Headless GUI testing strategies
-  - [x] Test organization (unit vs integration)
-  - [x] pytest-qt for professional UI testing
-  - [x] Signal testing with qtbot.waitSignal()
-  - [x] 91% test coverage (169 tests)
-  - [ ] Advanced mocking patterns
-- [x] Professional Git/GitHub workflow (branching, PRs, code review, merging)
+- [ ] Advanced mocking patterns in pytest
+
+**Completed:** ✅
+- PyQt/UI code from scratch (signals, slots, shortcuts, responsive design)
+- EPUB format structure
+- Professional pytest patterns (91% coverage, pytest-qt, signal testing)
+- Professional Git/GitHub workflow
 
 ## Off-Limits for Delegation
 
@@ -400,106 +264,19 @@ These things I must implement myself (for learning):
 - Any "interesting" algorithms
 - First implementation of each major component
 
-## Current Sprint
+## Key Architectural Decisions
 
-- [x] Project initialization
-- [x] EPUB parsing learning (COMPLETED)
-  - [x] Understand EPUB structure (ZIP-based format)
-  - [x] ZIP file handling with Python's zipfile module
-  - [x] Basic XML parsing with ElementTree
-  - [x] Navigate from container.xml to content.opf
-  - [x] Extract metadata from content.opf (title, author, language)
-  - [x] Extract manifest (list of all files)
-  - [x] Extract spine (reading order)
-  - [x] Read actual chapter content
-- [x] Core architecture setup (COMPLETED - Issue #1)
-  - [x] Exception module created
-  - [x] Test structure established
-  - [x] Architecture documented
-- [x] EPUB error handling (COMPLETED - PR #14)
-  - [x] Error handling tests for non-EPUB files
-  - [x] Error handling tests for corrupted files
-- [x] EPUB integration testing (COMPLETED - PR #15)
-  - [x] Integration tests with real EPUB files
-  - [x] Test complete reading workflow
-- [x] EPUB rendering MVP (COMPLETED - PR #22) 🎉
-  - [x] EPUB rendering architecture (Issue #17)
-  - [x] EPUB rendering MVP implementation (Issue #18)
-  - [x] PyQt6 learning and UI development
-  - [x] MVC architecture with Protocol abstraction
-  - [x] Full chapter navigation and error handling
-  - [x] 96% test coverage (82 tests)
-  - [x] Comprehensive manual testing
-- [x] Image rendering support (COMPLETED - PR #23) ✅
-  - [x] EPUBBook.get_resource() method for extracting resources from ZIP
-  - [x] HTML image resolution with base64 data URL embedding
-  - [x] Support for PNG, JPG, GIF, SVG, WebP, BMP formats
-  - [x] Complex path normalization (nested dirs, parent refs)
-  - [x] Graceful error handling for missing images
-  - [x] 100% test coverage on new code (13 new tests, 95 total)
-  - [x] 96.42% overall coverage maintained
-- [x] Image path resolution fix (COMPLETED - PR #25) ✅
-  - [x] Context-aware path resolution for images in chapters
-  - [x] Added get_chapter_href() method to EPUBBook
-  - [x] Modified get_resource() to accept relative_to parameter
-  - [x] Tests for new method (94.41% coverage)
-- [x] Performance profiling (COMPLETED - PR #26) ✅
-  - [x] Comprehensive profiling script with CLI
-  - [x] EPUB loading, chapter rendering, image resolution, memory tracking
-  - [x] Statistical analysis (min/max/avg/median)
-  - [x] Tested with 3 diverse EPUBs (201MB, 3MB, 0.65MB)
-  - [x] Identified memory concern with large image-heavy books
-  - [x] Recommendations documented in docs/testing/
-- [x] Chapter caching (COMPLETED - PR #27) ✅
-  - [x] Custom LRU cache with OrderedDict
-  - [x] 10-chapter limit reducing memory from 559MB → ~150MB
-  - [x] Cache statistics tracking
-  - [x] 94.41% test coverage maintained
-- [x] **Enhanced keyboard navigation** (COMPLETED - PR #32) 🎉
-  - [x] Left/Right arrow chapter navigation
-  - [x] Up/Down/PageUp/PageDown within-chapter scrolling
-  - [x] Home/End jump to chapter boundaries
-  - [x] Real-time progress display in status bar
-  - [x] Full MVC signal chain (BookViewer → Controller → MainWindow)
-  - [x] 100% test coverage on new code (42 new tests)
-  - [x] 95.48% overall coverage maintained (167 tests)
-- [x] **pytest-qt integration** (COMPLETED - PR #34) ✅
-  - [x] pytest-qt added to dev dependencies
-  - [x] 31 UI tests refactored to use qtbot
-  - [x] Views coverage: 0% → 88%
-  - [x] Overall coverage: 86% → 91% (+5%)
-  - [x] Comprehensive pytest-qt patterns documentation
-  - [x] All 169 tests passing with zero linting issues
-- [x] **Responsive image sizing** (COMPLETED - PR #33) ✅
-  - [x] CSS max-width: 100% for all images
-  - [x] Maintains aspect ratios
-  - [x] Smooth scaling during window resize
-  - [x] Professional image rendering experience
-- [x] **Reading themes (light/dark mode)** (COMPLETED - PR #35) 🎉
-  - [x] Theme dataclass with Light/Dark themes
-  - [x] View menu with theme selection (QActionGroup)
-  - [x] QSettings persistent theme preference
-  - [x] WCAG AAA compliant colors (15:1 light, 12:1 dark)
-  - [x] Themed book viewer and status bar
-  - [x] 100% test coverage on new code (26 new tests)
-  - [x] 91.37% overall coverage maintained (195 tests)
-  - [x] **MVP COMPLETE!** All core features implemented
+Selected important decisions from MVP (see full log below for complete history):
 
-## Post-MVP Roadmap
+| Date | Decision | Reasoning |
+|------|----------|-----------|
+| 2025-12-02 | UI framework: PyQt6 | Learning goals, native HTML rendering for EPUB, professional quality |
+| 2025-12-03 | MVC with Protocol abstraction | Controller owns state, views stateless, enables implementation swapping |
+| 2025-12-03 | Chapter cache: Custom LRU | Full control, memory tracking, reduced memory 559MB → 150MB |
+| 2025-12-04 | pytest-qt for UI testing | Industry standard, reliable signal testing, improved coverage 0% → 88% |
 
-### Priority Enhancements
-- [ ] True page-based pagination system (Issue #31)
-  - Replace virtual scrolling with calculated pages
-  - Stable page numbers
-  - Toggle between scroll and page modes
-- [ ] Bookmarks feature
-- [ ] PDF support
-- [ ] Annotations/highlights
-- [ ] Library management (organize books)
-
-## Decisions Log
-
-Record architectural decisions here as they're made:
+<details>
+<summary>Full Decisions Log (Reference)</summary>
 
 | Date | Decision | Reasoning | Doc Link |
 |------|----------|-----------|----------|
@@ -526,6 +303,8 @@ Record architectural decisions here as they're made:
 | 2025-12-04 | Responsive images with CSS | Use CSS max-width: 100% for responsive images instead of JavaScript-based resizing. Simpler implementation, smoother performance, standard web approach works perfectly in QTextBrowser. | PR #33 |
 | 2025-12-04 | Reading themes: Direct widget styling | Chose direct theme application in MainWindow over signal-based approach for MVP simplicity. Only 2-3 widgets need theming. Uses QActionGroup for menu radio buttons, QSettings for persistence, WCAG AAA colors. Can refactor to signals if complexity grows. | docs/architecture/reading-themes-architecture.md |
 
+</details>
+
 ## File Structure
 
 ```
@@ -537,7 +316,8 @@ ereader-app/
 │   ├── reviews/         # Code review notes
 │   ├── sessions/        # Session logs for continuity
 │   ├── study/           # Learning materials and study sessions
-│   └── testing/         # Test reports and findings
+│   ├── testing/         # Test reports and findings
+│   └── mvp-completion.md # MVP implementation history (archive)
 ├── src/ereader/
 │   ├── models/          # Data structures, business logic
 │   ├── views/           # UI components
@@ -611,6 +391,4 @@ ereader-app/
 **Tip:** Type `/` in Claude Code to see all available commands with tab-completion.
 
 ## Other Notes
-- [IMPORTANT] Always use context7 when I need code generation, setup or configuration steps, or
-library/API documentation. This means you should automatically use the Context7 MCP
-tools to resolve library id and get library docs without me having to explicitly ask.
+- [IMPORTANT] Always use context7 when I need code generation, setup or configuration steps, or library/API documentation. This means you should automatically use the Context7 MCP tools to resolve library id and get library docs without me having to explicitly ask.
