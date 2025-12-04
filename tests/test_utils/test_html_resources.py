@@ -51,9 +51,10 @@ class TestResolveImagesInHTML:
         html = '<img src="images/test.png" />'
         resolved_html = resolve_images_in_html(html, book)
 
-        # Check that it's now a data URL
+        # Check that it's now a data URL with responsive styling
         assert "data:image/png;base64," in resolved_html
         assert "images/test.png" not in resolved_html
+        assert 'style="max-width: 100%; height: auto;"' in resolved_html
 
     def test_resolve_multiple_images(self, tmp_path: Path) -> None:
         """Test resolving multiple image references in same HTML."""
@@ -106,11 +107,12 @@ class TestResolveImagesInHTML:
 
         resolved_html = resolve_images_in_html(html, book)
 
-        # Both images should be resolved
+        # Both images should be resolved with responsive styling
         assert resolved_html.count("data:image/png;base64,") == 1
         assert resolved_html.count("data:image/jpeg;base64,") == 1
         assert "images/img1.png" not in resolved_html
         assert "images/img2.jpg" not in resolved_html
+        assert resolved_html.count('style="max-width: 100%; height: auto;"') == 2
 
     def test_preserve_image_attributes(self, tmp_path: Path) -> None:
         """Test that image attributes (alt, class, etc.) are preserved."""
@@ -151,11 +153,12 @@ class TestResolveImagesInHTML:
         html = '<img class="cover" alt="Book Cover" src="cover.jpg" width="300" />'
         resolved_html = resolve_images_in_html(html, book)
 
-        # Attributes should be preserved
+        # Attributes should be preserved and responsive style added
         assert 'class="cover"' in resolved_html
         assert 'alt="Book Cover"' in resolved_html
         assert 'width="300"' in resolved_html
         assert "data:image/jpeg;base64," in resolved_html
+        assert 'style="max-width: 100%; height: auto;"' in resolved_html
 
     def test_skip_absolute_urls(self, tmp_path: Path) -> None:
         """Test that absolute URLs (http, https) are not modified."""
@@ -280,6 +283,53 @@ class TestResolveImagesInHTML:
         # Original reference should be kept (graceful degradation)
         assert 'src="nonexistent.jpg"' in resolved_html
         assert 'alt="Missing"' in resolved_html
+
+    def test_responsive_style_added_to_images(self, tmp_path: Path) -> None:
+        """Test that responsive styling is added to make images fit viewport."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+<item id="img1" href="large.jpg" media-type="image/jpeg"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        image_data = b"\xff\xd8\xff\xe0"
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+            zf.writestr("OEBPS/chapter1.xhtml", "<html></html>")
+            zf.writestr("OEBPS/large.jpg", image_data)
+
+        book = EPUBBook(epub_file)
+
+        # Test with a large image that would exceed viewport
+        html = '<img src="large.jpg" alt="Large Image" />'
+        resolved_html = resolve_images_in_html(html, book)
+
+        # Should have responsive style to prevent horizontal scrolling
+        assert 'style="max-width: 100%; height: auto;"' in resolved_html
+        # Style prevents images from exceeding viewport width
+        assert "max-width: 100%" in resolved_html
+        # height: auto maintains aspect ratio
+        assert "height: auto" in resolved_html
 
     def test_html_without_images_unchanged(self, tmp_path: Path) -> None:
         """Test that HTML without images passes through unchanged."""

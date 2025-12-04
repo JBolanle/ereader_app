@@ -97,8 +97,11 @@ def resolve_images_in_html(
                 mime_type
             )
 
-            # Reconstruct the img tag with data URL
-            return f'<img {before_src}src="{data_url}"{after_src}>'
+            # Reconstruct the img tag with data URL and responsive styling
+            # Add max-width: 100% to prevent images from exceeding viewport width
+            # and height: auto to maintain aspect ratio
+            style = 'max-width: 100%; height: auto;'
+            return f'<img {before_src}src="{data_url}" style="{style}"{after_src}>'
 
         except CorruptedEPUBError:
             # Image not found - log warning but keep original reference
