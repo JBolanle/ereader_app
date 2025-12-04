@@ -73,7 +73,6 @@ addopts = "-v"
 
 [tool.coverage.run]
 omit = [
-    "src/ereader/views/*",
     "src/ereader/__main__.py",
 ]
 
@@ -86,4 +85,5 @@ warn_unused_ignores = true
 [dependency-groups]
 dev = [
     "pytest-cov>=7.0.0",
+    "pytest-qt>=4.5.0",
 ]
