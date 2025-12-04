@@ -70,6 +70,8 @@ known-first-party = ["ereader"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v"
+qt_api = "pyqt6"
+qt_log_level_fail = "WARNING"
 
 [tool.coverage.run]
 omit = [

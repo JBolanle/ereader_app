@@ -250,3 +250,180 @@ When migrating existing tests to pytest-qt:
 - [ ] Remove unused imports (QApplication, Mock if no longer needed)
 - [ ] Verify all tests pass
 - [ ] Update pyproject.toml if pytest-qt not in dependencies
+
+## Troubleshooting
+
+Common issues when running pytest-qt tests and their solutions.
+
+### Headless Display Issues in CI
+
+**Problem:** Tests fail in CI with `"Could not connect to display"` or `"QXcbConnection: Could not connect to display"`.
+
+**Solution:** Use Xvfb (X Virtual Frame Buffer) for headless testing:
+
+```yaml
+# GitHub Actions example
+- name: Run tests
+  run: |
+    sudo apt-get install -y xvfb
+    xvfb-run -a pytest
+```
+
+Or use pytest-xvfb plugin:
+```bash
+uv add --dev pytest-xvfb
+# Tests will automatically run in virtual display
+```
+
+### Platform-Specific Quirks
+
+#### Wayland vs X11
+
+**Problem:** Tests behave differently on Wayland vs X11 display servers.
+
+**Solution:**
+- Force X11 backend: `export QT_QPA_PLATFORM=xcb`
+- Or use offscreen platform: `export QT_QPA_PLATFORM=offscreen`
+- Add to pyproject.toml:
+  ```toml
+  [tool.pytest.ini_options]
+  env = [
+      "QT_QPA_PLATFORM=offscreen"
+  ]
+  ```
+
+#### macOS Specific
+
+**Problem:** Tests hang on macOS or require GUI access permissions.
+
+**Solution:**
+- Run tests with `pytest --no-qt-log` to reduce Qt logging
+- Grant Terminal/IDE permissions in System Preferences > Security & Privacy
+
+### Docker/Container Considerations
+
+**Problem:** Qt tests fail in Docker containers.
+
+**Solution:** Use offscreen rendering in containers:
+
+```dockerfile
+# Dockerfile
+ENV QT_QPA_PLATFORM=offscreen
+ENV QT_DEBUG_PLUGINS=0
+
+RUN apt-get update && apt-get install -y \
+    libxkbcommon-x11-0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-randr0 \
+    libxcb-render-util0 \
+    libxcb-xinerama0 \
+    libxcb-xfixes0 \
+    libxcb-shape0
+```
+
+### Slow Test Execution
+
+**Problem:** Qt tests run slowly.
+
+**Solution:**
+- Reduce wait times: Use `qtbot.wait(10)` instead of longer waits
+- Use `pytest-xdist` for parallel execution: `uv add --dev pytest-xdist`
+- Run with: `pytest -n auto` (auto-detect CPU count)
+- Be careful with GUI tests in parallel - may need serial execution
+
+### Signal Timeout Errors
+
+**Problem:** `SignalTimeoutError: Signal 'scroll_position_changed' not emitted after 1000 ms`
+
+**Solution:**
+1. Increase timeout if operation is legitimately slow:
+   ```python
+   with qtbot.waitSignal(signal, timeout=5000):  # 5 seconds
+       slow_operation()
+   ```
+
+2. Check if signal is actually being emitted:
+   ```python
+   # Debug: manually verify signal emission
+   received = []
+   signal.connect(lambda: received.append(True))
+   operation()
+   qtbot.wait(100)
+   assert received, "Signal was not emitted"
+   ```
+
+3. Ensure Qt event loop is running:
+   ```python
+   qtbot.wait(10)  # Process pending events before waiting for signal
+   with qtbot.waitSignal(signal):
+       operation()
+   ```
+
+### Flaky Tests
+
+**Problem:** Tests pass sometimes but fail intermittently.
+
+**Solution:**
+- Add small waits before assertions: `qtbot.wait(10)`
+- Use `qtbot.waitUntil()` for conditions:
+  ```python
+  qtbot.waitUntil(lambda: widget.isVisible(), timeout=1000)
+  ```
+- Avoid race conditions by waiting for signals instead of fixed delays
+- Ensure proper widget initialization before testing
+
+### Memory Leaks in Tests
+
+**Problem:** Memory usage grows with each test run.
+
+**Solution:**
+- Ensure `qtbot.addWidget()` is used for all widgets
+- Explicitly close windows in fixture teardown:
+  ```python
+  @pytest.fixture
+  def window(qtbot):
+      win = MainWindow()
+      qtbot.addWidget(win)
+      yield win
+      win.close()  # Explicit cleanup
+  ```
+- Check for circular references in signal connections
+- Use weak references for long-lived connections
+
+### Qt Warnings Causing Test Failures
+
+**Problem:** Qt warnings treated as errors with `qt_log_level_fail = "WARNING"`.
+
+**Solution:**
+1. Fix the warnings (preferred)
+2. Temporarily allow specific warnings:
+   ```python
+   @pytest.mark.qt_log_ignore("QLayout: Attempting to add QLayout")
+   def test_something(qtbot):
+       pass
+   ```
+3. Adjust threshold in pyproject.toml:
+   ```toml
+   [tool.pytest.ini_options]
+   qt_log_level_fail = "CRITICAL"  # Only fail on critical issues
+   ```
+
+### ImportError: No module named 'PyQt6.QtTest'
+
+**Problem:** pytest-qt can't find Qt test module.
+
+**Solution:**
+- Ensure PyQt6 is fully installed: `uv add pyqt6`
+- Verify Qt installation: `python -c "from PyQt6 import QtTest; print('OK')"`
+- Reinstall if needed: `uv add --force-reinstall pyqt6 pytest-qt`
+
+## Getting Help
+
+If you encounter issues not covered here:
+
+1. **Check pytest-qt documentation:** https://pytest-qt.readthedocs.io/
+2. **Qt Test documentation:** https://doc.qt.io/qt-6/qtest-overview.html
+3. **Search pytest-qt issues:** https://github.com/pytest-dev/pytest-qt/issues
+4. **Enable debug output:** Run with `pytest -vv --qt-debug` for detailed Qt logs
