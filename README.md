@@ -94,12 +94,53 @@ cd ereader_app
 # Install dependencies
 uv sync
 
+# Run the application
+uv run python -m ereader
+
 # Run tests
 uv run pytest
 
 # Run linting
 uv run ruff check src/
 ```
+
+## 📖 Using the E-Reader
+
+### Opening a Book
+
+Launch the application and use **File → Open Book** (or `Ctrl+O`) to select an EPUB file.
+
+### Navigation
+
+**Keyboard Shortcuts:**
+- `Left Arrow` / `Right Arrow` - Previous/Next chapter
+- `Up Arrow` / `Down Arrow` - Scroll within chapter
+- `Page Up` / `Page Down` - Scroll one page within chapter
+- `Home` / `End` - Jump to chapter beginning/end
+- `Ctrl+O` - Open book
+- `Ctrl+Q` - Quit application
+
+**Mouse Navigation:**
+- Click "Previous Chapter" / "Next Chapter" buttons
+- Use scrollbar for within-chapter navigation
+- Progress indicator shows current position (Chapter X/Y - Z%)
+
+### Reading Themes
+
+Switch between Light and Dark themes via **View → Theme**:
+- **Light Theme**: Black text on cream background (WCAG AAA: 15:1 contrast)
+- **Dark Theme**: Light gray text on dark background (WCAG AAA: 12:1 contrast)
+
+Your theme preference is saved automatically.
+
+### Features
+
+✅ **Full EPUB support** with image rendering
+✅ **Chapter-based navigation** with keyboard and UI controls
+✅ **Reading progress tracking** in real-time
+✅ **Memory-efficient caching** (10-chapter LRU cache)
+✅ **Accessible themes** (WCAG AAA compliant colors)
+✅ **Responsive images** that scale with window size
 
 ## 💻 Development
 
