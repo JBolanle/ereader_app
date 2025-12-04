@@ -113,6 +113,7 @@ class BookViewer(QWidget):
         welcome_html = f"""
         <html>
         <body style="text-align: center; padding-top: 100px; font-family: sans-serif;
+                     background-color: {self._current_theme.background};
                      color: {self._current_theme.text};">
             <h1>Welcome to E-Reader</h1>
             <p style="opacity: 0.6;">Open an EPUB file to start reading</p>
