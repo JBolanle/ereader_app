@@ -580,7 +580,7 @@ class TestReaderControllerCaching:
 
     @patch('ereader.controllers.reader_controller.resolve_images_in_html')
     def test_sequential_navigation_caching(self, mock_resolve_images):
-        """Test cache behavior during forward sequential navigation."""
+        """Test cache behavior during forward sequential navigation with multi-layer caching."""
         mock_book = MagicMock()
         mock_book.filepath = "/path/to/book.epub"
         mock_book.get_chapter_count.return_value = 15
@@ -591,25 +591,27 @@ class TestReaderControllerCaching:
         controller = ReaderController()
         controller._book = mock_book
 
-        # Navigate forward through chapters 0-12
+        # Navigate forward through chapters 0-12 (13 chapters total)
         for i in range(13):
             controller._load_chapter(i)
 
-        # At this point, with maxsize=10, chapters 0-2 should be evicted
-        # Chapters 3-12 should be in cache
+        # With multi-layer caching:
+        # - Rendered cache (maxsize=10): chapters 3-12 (evicted 0-2)
+        # - Raw cache (maxsize=20): chapters 0-12 (all still cached)
 
         # Reset mock to count cache hits
         mock_book.get_chapter_content.reset_mock()
 
-        # Re-load chapter 2 - should miss (evicted)
+        # Re-load chapter 2 - should hit raw cache (no book load needed)
+        # But needs re-rendering (evicted from rendered cache)
         controller._load_chapter(2)
-        assert mock_book.get_chapter_content.call_count == 1
+        assert mock_book.get_chapter_content.call_count == 0  # Raw cache hit
 
         mock_book.get_chapter_content.reset_mock()
 
-        # Re-load chapter 12 - should hit (recently used)
+        # Re-load chapter 12 - should hit rendered cache (complete cache hit)
         controller._load_chapter(12)
-        assert mock_book.get_chapter_content.call_count == 0  # Cache hit
+        assert mock_book.get_chapter_content.call_count == 0  # Rendered cache hit
 
     @patch('ereader.controllers.reader_controller.resolve_images_in_html')
     def test_backward_navigation_caching(self, mock_resolve_images):
@@ -668,15 +670,15 @@ class TestReaderControllerCaching:
             mock_epub_class.return_value = mock_book1
             controller.open_book("/path/to/book1.epub")
 
-            # Cache should have 1 entry
-            assert controller._chapter_cache.stats()["size"] == 1
+            # Cache should have 1 entry in rendered chapters
+            assert controller._cache_manager.rendered_chapters.stats()["size"] == 1
 
             # Open second book
             mock_epub_class.return_value = mock_book2
             controller.open_book("/path/to/book2.epub")
 
             # Cache should be cleared and have 1 entry (from new book)
-            stats = controller._chapter_cache.stats()
+            stats = controller._cache_manager.rendered_chapters.stats()
             assert stats["size"] == 1
             # Stats should be reset (hits are 0, but we have 1 miss from loading the first chapter)
             assert stats["hits"] == 0
@@ -698,7 +700,7 @@ class TestReaderControllerCaching:
 
         # Load chapter 0 from first book
         controller._load_chapter(0)
-        first_content = controller._chapter_cache.get("/path/to/book.epub:0")
+        first_content = controller._cache_manager.rendered_chapters.get("/path/to/book.epub:0")
 
         # Simulate changing book (different path)
         mock_book.filepath = "/path/to/different_book.epub"
@@ -707,8 +709,8 @@ class TestReaderControllerCaching:
         controller._load_chapter(0)
 
         # Both chapters should be in cache with different keys
-        assert controller._chapter_cache.get("/path/to/book.epub:0") == first_content
-        assert controller._chapter_cache.get("/path/to/different_book.epub:0") == "<p>Chapter 0</p>"
+        assert controller._cache_manager.rendered_chapters.get("/path/to/book.epub:0") == first_content
+        assert controller._cache_manager.rendered_chapters.get("/path/to/different_book.epub:0") == "<p>Chapter 0</p>"
 
     def test_next_chapter_uses_cache(self):
         """Test that next_chapter() method benefits from caching."""
@@ -994,12 +996,12 @@ class TestReaderControllerMemoryMonitoring:
     """Test memory monitoring integration in ReaderController (Phase 2)."""
 
     def test_init_creates_memory_monitor(self):
-        """Test that ReaderController initializes with MemoryMonitor."""
+        """Test that ReaderController initializes with MemoryMonitor via CacheManager."""
         controller = ReaderController()
 
-        assert hasattr(controller, '_memory_monitor')
-        assert controller._memory_monitor is not None
-        assert controller._memory_monitor._threshold_mb == 150
+        assert hasattr(controller, '_cache_manager')
+        assert controller._cache_manager.memory_monitor is not None
+        assert controller._cache_manager.memory_monitor._threshold_mb == 150
 
     @patch('ereader.controllers.reader_controller.resolve_images_in_html')
     def test_memory_check_called_after_chapter_load(self, mock_resolve_images):
@@ -1016,7 +1018,7 @@ class TestReaderControllerMemoryMonitoring:
         controller._book = mock_book
 
         # Mock the memory monitor's check_threshold method
-        with patch.object(controller._memory_monitor, 'check_threshold') as mock_check:
+        with patch.object(controller._cache_manager.memory_monitor, 'check_threshold') as mock_check:
             mock_check.return_value = False
 
             # Load a chapter
@@ -1073,13 +1075,13 @@ class TestReaderControllerMemoryMonitoring:
         controller._book = mock_book
 
         # Load chapter once to cache it
-        with patch.object(controller._memory_monitor, 'check_threshold') as mock_check:
+        with patch.object(controller._cache_manager.memory_monitor, 'check_threshold') as mock_check:
             mock_check.return_value = False
             controller._load_chapter(0)
             first_call_count = mock_check.call_count
 
         # Load same chapter again (cache hit)
-        with patch.object(controller._memory_monitor, 'check_threshold') as mock_check:
+        with patch.object(controller._cache_manager.memory_monitor, 'check_threshold') as mock_check:
             mock_check.return_value = False
             controller._load_chapter(0)
             second_call_count = mock_check.call_count
@@ -1102,7 +1104,7 @@ class TestReaderControllerMemoryMonitoring:
         controller = ReaderController()
         controller._book = mock_book
 
-        with patch.object(controller._memory_monitor, 'check_threshold') as mock_check:
+        with patch.object(controller._cache_manager.memory_monitor, 'check_threshold') as mock_check:
             mock_check.return_value = False
 
             # Load multiple chapters sequentially
@@ -1116,7 +1118,7 @@ class TestReaderControllerMemoryMonitoring:
         """Test that memory monitor stats can be accessed."""
         controller = ReaderController()
 
-        stats = controller._memory_monitor.get_stats()
+        stats = controller._cache_manager.memory_monitor.get_stats()
 
         # Verify stats structure
         assert "current_usage_mb" in stats
