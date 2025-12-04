@@ -373,10 +373,18 @@ For complex implementations:
 ## Learning Goals
 
 - [ ] Understand async/await deeply (not just copy patterns)
-- [ ] Be able to write PyQt/UI code from scratch
+- [x] Be able to write PyQt/UI code from scratch (MAJOR PROGRESS)
+  - [x] Qt Signals and Slots (custom signals, signal chains)
+  - [x] QShortcut system for keyboard handling
+  - [x] QScrollBar API and percentage calculations
+  - [ ] Complete widget library mastery
 - [x] Understand EPUB format well enough to explain it (structure understood)
 - [ ] Learn proper Python packaging for distribution
-- [ ] Master pytest and testing patterns
+- [x] Master pytest and testing patterns (MAJOR PROGRESS)
+  - [x] Integration tests for signal chains
+  - [x] Headless GUI testing strategies
+  - [x] Test organization (unit vs integration)
+  - [ ] Advanced mocking patterns
 - [x] Professional Git/GitHub workflow (branching, PRs, code review, merging)
 
 ## Off-Limits for Delegation
@@ -442,12 +450,15 @@ These things I must implement myself (for learning):
   - [x] 10-chapter limit reducing memory from 559MB → ~150MB
   - [x] Cache statistics tracking
   - [x] 94.41% test coverage maintained
+- [x] **Enhanced keyboard navigation** (COMPLETED - PR #32) 🎉
+  - [x] Left/Right arrow chapter navigation
+  - [x] Up/Down/PageUp/PageDown within-chapter scrolling
+  - [x] Home/End jump to chapter boundaries
+  - [x] Real-time progress display in status bar
+  - [x] Full MVC signal chain (BookViewer → Controller → MainWindow)
+  - [x] 100% test coverage on new code (42 new tests)
+  - [x] 95.48% overall coverage maintained (167 tests)
 - [ ] Next steps (MVP Completion)
-  - [ ] **Enhanced keyboard navigation** (Issue #21 - Priority 1)
-    - Virtual pagination with scroll-based navigation
-    - Chapter navigation (Left/Right arrows)
-    - Within-chapter scrolling (Up/Down, PgUp/PgDown)
-    - Progress indicator showing position within chapter
   - [ ] Basic reading themes (light/dark mode)
 - [ ] Post-MVP Enhancements
   - [ ] True page-based pagination system (Issue #31)
@@ -479,6 +490,9 @@ Record architectural decisions here as they're made:
 | 2025-12-03 | LRU caching as Priority 1 optimization | Profiling revealed memory growth with images (up to 559MB). LRU cache will cap at ~150MB even for large books. | docs/testing/performance-summary.md |
 | 2025-12-03 | Chapter cache: Custom LRU with OrderedDict | Use custom LRU (not functools.lru_cache or external lib) for full control, memory tracking, and debugging. Phased approach: Phase 1=basic LRU (10 chapters), Phase 2=memory monitoring, Phase 3=multi-layer caching. Expected impact: 559MB → 150MB (73% reduction). | docs/architecture/chapter-caching-system.md |
 | 2025-12-03 | Phased pagination approach | Phase 1 (MVP): Virtual pagination with scroll-based navigation for quick UX improvement. Phase 2 (Post-MVP): True page-based pagination with stable page numbers and mode toggle. Prioritizes shipping MVP while planning for professional-grade enhancement. | Issue #21, Issue #31 |
+| 2025-12-04 | Keyboard navigation: Virtual pagination (Phase 1) | Scroll-based navigation with 50% overlap for arrow keys provides smooth UX while shipping MVP faster. Phase 2 will add true page-based pagination. | Issue #21, Issue #31 |
+| 2025-12-04 | Scroll amounts: 50% for arrows, 100% for Page keys | UX research showed 50% overlap preserves reading context while arrows feel responsive. Full page for Page keys follows standard desktop conventions. | docs/architecture/keyboard-navigation-architecture.md |
+| 2025-12-04 | Signal connection order: After content load | Connect scrollbar signals after initial content to prevent spurious emissions during initialization. Improves maintainability and initialization clarity. | Code review improvement |
 
 ## File Structure
 
