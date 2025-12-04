@@ -370,7 +370,8 @@ class TestBookViewerTheme:
         viewer.apply_theme(LIGHT_THEME)
 
         stylesheet = viewer._renderer.styleSheet()
-        assert LIGHT_THEME.background in stylesheet
+        # BookViewer uses 'surface' for content background, not 'background'
+        assert LIGHT_THEME.surface in stylesheet
         assert LIGHT_THEME.text in stylesheet
 
     def test_apply_dark_theme(self, qtbot, viewer):
@@ -378,7 +379,8 @@ class TestBookViewerTheme:
         viewer.apply_theme(DARK_THEME)
 
         stylesheet = viewer._renderer.styleSheet()
-        assert DARK_THEME.background in stylesheet
+        # BookViewer uses 'surface' for content background, not 'background'
+        assert DARK_THEME.surface in stylesheet
         assert DARK_THEME.text in stylesheet
 
     def test_apply_custom_theme(self, qtbot, viewer):
@@ -386,14 +388,19 @@ class TestBookViewerTheme:
         custom_theme = Theme(
             name="Custom",
             background="#123456",
+            surface="#111111",
             text="#abcdef",
+            text_secondary="#cccccc",
+            accent="#ff0000",
+            border="#444444",
             status_bg="#fedcba",
         )
 
         viewer.apply_theme(custom_theme)
 
         stylesheet = viewer._renderer.styleSheet()
-        assert custom_theme.background in stylesheet
+        # BookViewer uses 'surface' for content background
+        assert custom_theme.surface in stylesheet
         assert custom_theme.text in stylesheet
 
     def test_theme_switch(self, qtbot, viewer):
@@ -409,8 +416,8 @@ class TestBookViewerTheme:
         # Verify stylesheets are different
         assert stylesheet_light != stylesheet_dark
 
-        # Verify dark theme colors are present
-        assert DARK_THEME.background in stylesheet_dark
+        # Verify dark theme colors are present (using surface for content)
+        assert DARK_THEME.surface in stylesheet_dark
         assert DARK_THEME.text in stylesheet_dark
 
     def test_theme_preserves_padding(self, qtbot, viewer):
@@ -418,9 +425,10 @@ class TestBookViewerTheme:
         viewer.apply_theme(LIGHT_THEME)
 
         stylesheet = viewer._renderer.styleSheet()
-        assert "padding: 20px" in stylesheet
+        # New design uses 40px 60px padding for editorial elegance
+        assert "padding: 40px 60px" in stylesheet
 
         viewer.apply_theme(DARK_THEME)
 
         stylesheet = viewer._renderer.styleSheet()
-        assert "padding: 20px" in stylesheet
+        assert "padding: 40px 60px" in stylesheet

@@ -51,12 +51,8 @@ class BookViewer(QWidget):
         self._renderer.setOpenExternalLinks(False)  # Don't open external links
         self._renderer.setOpenLinks(False)  # Don't follow internal links (for now)
 
-        # Set base font size
-        font = self._renderer.font()
-        font.setPointSize(12)
-        self._renderer.setFont(font)
-
-        # Apply default theme
+        # Apply default theme (includes font settings via stylesheet)
+        self._current_theme = DEFAULT_THEME
         self.apply_theme(DEFAULT_THEME)
 
         # Setup layout
@@ -79,33 +75,47 @@ class BookViewer(QWidget):
         """Apply a visual theme to the book viewer.
 
         This method updates the stylesheet of the text browser to use the
-        colors defined in the provided theme.
+        comprehensive styling defined in the provided theme, including
+        typography, colors, and scrollbar styling.
 
         Args:
             theme: The theme to apply.
         """
         logger.debug("Applying theme: %s", theme.name)
 
-        # Generate stylesheet from theme colors
-        stylesheet = f"""
-            QTextBrowser {{
-                padding: 20px;
-                background-color: {theme.background};
-                color: {theme.text};
-            }}
-        """
-        self._renderer.setStyleSheet(stylesheet)
+        # Store current theme and apply comprehensive stylesheet
+        self._current_theme = theme
+        self._renderer.setStyleSheet(theme.get_book_viewer_stylesheet())
+
+        # Refresh welcome message to use new theme colors
+        if self._renderer.toPlainText().strip().startswith("Welcome to E-Reader"):
+            self._show_welcome_message()
 
         logger.debug("Theme applied: %s", theme.name)
 
     def _show_welcome_message(self) -> None:
         """Display a welcome message when no book is loaded."""
-        welcome_html = """
+        welcome_html = f"""
         <html>
-        <body style="text-align: center; padding-top: 100px; font-family: sans-serif;">
-            <h1>Welcome to E-Reader</h1>
-            <p style="color: gray;">Open an EPUB file to start reading</p>
-            <p style="color: gray; font-size: 0.9em;">File → Open (Ctrl+O)</p>
+        <body style="text-align: center; padding-top: 100px;
+                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+                                 'Segoe UI', system-ui, sans-serif;">
+            <h1 style="color: {self._current_theme.text};
+                       font-weight: 300;
+                       font-size: 2.5em;
+                       margin-bottom: 0.5em;">
+                Welcome to E-Reader
+            </h1>
+            <p style="color: {self._current_theme.text_secondary};
+                      font-size: 1.1em;
+                      margin: 0.5em 0;">
+                Open an EPUB file to start reading
+            </p>
+            <p style="color: {self._current_theme.text_secondary};
+                      font-size: 0.95em;
+                      margin-top: 1.5em;">
+                File → Open (Ctrl+O)
+            </p>
         </body>
         </html>
         """

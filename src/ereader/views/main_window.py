@@ -33,7 +33,8 @@ class MainWindow(QMainWindow):
 
         # Set window properties
         self.setWindowTitle("E-Reader")
-        self.setGeometry(100, 100, 800, 600)  # x, y, width, height
+        self.setGeometry(100, 100, 1100, 800)  # x, y, width, height (larger for comfortable reading)
+        self.setMinimumSize(900, 700)  # Ensure minimum usable size
 
         # Initialize theme state
         self._current_theme: Theme = DEFAULT_THEME
@@ -300,18 +301,14 @@ class MainWindow(QMainWindow):
         # Update current theme
         self._current_theme = theme
 
+        # Apply global stylesheet to main window (includes menu bar, status bar, etc.)
+        self.setStyleSheet(theme.get_global_stylesheet())
+
         # Apply to book viewer
         self._book_viewer.apply_theme(theme)
 
-        # Apply to status bar
-        status_bar = self.statusBar()
-        if status_bar is not None:
-            status_bar.setStyleSheet(f"""
-                QStatusBar {{
-                    background-color: {theme.status_bg};
-                    color: {theme.text};
-                }}
-            """)
+        # Apply to navigation bar
+        self._navigation_bar.apply_theme(theme)
 
         logger.debug("Theme applied: %s", theme.name)
 
