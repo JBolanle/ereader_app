@@ -230,11 +230,11 @@ Before requesting review:
 
 ## Target Features (Priority Order)
 
-### Core (MVP)
+### Core (MVP) - ✅ COMPLETED!
 1. [x] Open and render EPUB files (COMPLETED - PR #22)
 2. [x] Page/chapter navigation (COMPLETED - PR #22)
 3. [x] Reading progress tracking (COMPLETED - PR #22)
-4. [ ] Basic reading themes (light/dark)
+4. [x] Basic reading themes (light/dark) (COMPLETED - PR #35)
 
 ### Important
 5. [ ] PDF support
@@ -475,20 +475,27 @@ These things I must implement myself (for learning):
   - [x] Maintains aspect ratios
   - [x] Smooth scaling during window resize
   - [x] Professional image rendering experience
+- [x] **Reading themes (light/dark mode)** (COMPLETED - PR #35) 🎉
+  - [x] Theme dataclass with Light/Dark themes
+  - [x] View menu with theme selection (QActionGroup)
+  - [x] QSettings persistent theme preference
+  - [x] WCAG AAA compliant colors (15:1 light, 12:1 dark)
+  - [x] Themed book viewer and status bar
+  - [x] 100% test coverage on new code (26 new tests)
+  - [x] 91.37% overall coverage maintained (195 tests)
+  - [x] **MVP COMPLETE!** All core features implemented
 
-### Current Sprint (MVP Completion)
-- [ ] Basic reading themes (light/dark mode)
-  - Will include theme switching
-  - Persistent theme preference
-  - Professional color schemes
+## Post-MVP Roadmap
 
-### Post-MVP Enhancements
+### Priority Enhancements
 - [ ] True page-based pagination system (Issue #31)
   - Replace virtual scrolling with calculated pages
   - Stable page numbers
   - Toggle between scroll and page modes
 - [ ] Bookmarks feature
 - [ ] PDF support
+- [ ] Annotations/highlights
+- [ ] Library management (organize books)
 
 ## Decisions Log
 
@@ -517,6 +524,7 @@ Record architectural decisions here as they're made:
 | 2025-12-04 | Signal connection order: After content load | Connect scrollbar signals after initial content to prevent spurious emissions during initialization. Improves maintainability and initialization clarity. | Code review improvement |
 | 2025-12-04 | pytest-qt for UI testing | Migrate from manual Qt testing to pytest-qt for industry-standard UI testing. Benefits: reliable signal testing with qtbot.waitSignal(), automatic widget cleanup, better event loop control, eliminates race conditions. Improved views coverage from 0% to 88%. | docs/testing/pytest-qt-patterns.md |
 | 2025-12-04 | Responsive images with CSS | Use CSS max-width: 100% for responsive images instead of JavaScript-based resizing. Simpler implementation, smoother performance, standard web approach works perfectly in QTextBrowser. | PR #33 |
+| 2025-12-04 | Reading themes: Direct widget styling | Chose direct theme application in MainWindow over signal-based approach for MVP simplicity. Only 2-3 widgets need theming. Uses QActionGroup for menu radio buttons, QSettings for persistence, WCAG AAA colors. Can refactor to signals if complexity grows. | docs/architecture/reading-themes-architecture.md |
 
 ## File Structure
 

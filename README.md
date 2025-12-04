@@ -4,11 +4,13 @@ A comprehensive e-reader application in Python, built for learning modern Python
 
 ## Status
 
-🚧 **Under Active Development** 🚧
+✅ **MVP Complete!** 🎉
 
 This project serves dual purposes:
 1. **Learning**: Master modern Python development, testing, and architecture
 2. **Practical**: Build a working e-reader for actual use
+
+**The MVP is now feature-complete with all core functionality implemented!**
 
 ### Current Progress
 
@@ -62,9 +64,15 @@ This project serves dual purposes:
   - [x] Views coverage improved: 0% → 88%
   - [x] Overall coverage boost: 86% → 91% (+5%)
   - [x] Comprehensive testing patterns documented
-- [ ] **Next up**: Basic reading themes (light/dark mode)
+- [x] Reading themes with light/dark mode (PR #35) 🎉
+  - [x] Light and Dark theme with WCAG AAA compliant colors
+  - [x] View menu theme selector with radio button behavior
+  - [x] Persistent theme preference via QSettings
+  - [x] Themed book viewer and status bar
+  - [x] 100% test coverage on new code (26 new tests)
+  - [x] **MVP COMPLETE!** All core features implemented
 
-See [CLAUDE.md](CLAUDE.md) for detailed development context and current sprint.
+See [CLAUDE.md](CLAUDE.md) for detailed development context and post-MVP roadmap.
 
 ## 📋 Prerequisites
 
@@ -183,16 +191,17 @@ ereader_app/
 
 ## 🗺️ Features Roadmap
 
-### 🎯 Core (MVP)
+### 🎯 Core (MVP) - ✅ COMPLETED!
 - [x] Open and render EPUB files (PR #22)
 - [x] Page/chapter navigation (PR #22)
 - [x] Reading progress tracking (PR #22)
 - [x] Image rendering support (PR #23)
-- [ ] Basic reading themes (light/dark)
+- [x] Basic reading themes (light/dark) (PR #35)
 
-### ⭐ Important
-- [ ] PDF support
+### ⭐ Post-MVP Priority Enhancements
+- [ ] True page-based pagination (Issue #31)
 - [ ] Bookmarks
+- [ ] PDF support
 - [ ] Annotations/highlights
 - [ ] Library management
 
