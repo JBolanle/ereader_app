@@ -7,7 +7,7 @@ This script measures:
 - Image resolution time
 
 Usage:
-    uv run python profile_performance.py [epub_path]
+    uv run python scripts/profile_performance.py [epub_path]
 
 Dependencies:
     Requires psutil: uv add psutil

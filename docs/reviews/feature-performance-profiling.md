@@ -34,7 +34,7 @@ subprocess.run([sys.executable, "-m", "pip", "install", "psutil"], check=True)
 - Violates explicitly documented project standards in CLAUDE.md
 - May install psutil outside the uv-managed environment
 
-**Solution**: Remove the auto-installation logic entirely. The dependency is already in `pyproject.toml`, so users running `uv run python profile_performance.py` will automatically have it available. If we want defensive checking:
+**Solution**: Remove the auto-installation logic entirely. The dependency is already in `pyproject.toml`, so users running `uv run python scripts/profile_performance.py` will automatically have it available. If we want defensive checking:
 
 ```python
 try:
@@ -315,7 +315,7 @@ Benefits:
 
 ```bash
 # In CLAUDE.md Quick Command Reference
-uv run python profile_performance.py <epub_path>
+uv run python scripts/profile_performance.py <epub_path>
 ```
 
 Or create `.claude/commands/profile.md`:

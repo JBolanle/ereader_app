@@ -533,7 +533,7 @@ These are **NOT** blocking issues, just notes for future phases:
    ```
 
 3. ✅ **Update performance profiling** (from todo list)
-   - Modify `profile_performance.py` to measure cache impact
+   - Modify `scripts/profile_performance.py` to measure cache impact
    - Run profiling with cache enabled
    - Compare before/after memory usage
    - Document results
