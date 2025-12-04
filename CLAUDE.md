@@ -418,10 +418,23 @@ These things I must implement myself (for learning):
   - [x] Tested with 3 diverse EPUBs (201MB, 3MB, 0.65MB)
   - [x] Identified memory concern with large image-heavy books
   - [x] Recommendations documented in docs/testing/
-- [ ] Next steps
-  - [ ] **Performance**: Implement LRU caching for chapters (Priority 1)
-  - [ ] Arrow key navigation (Issue #21)
+- [x] Chapter caching (COMPLETED - PR #27) ✅
+  - [x] Custom LRU cache with OrderedDict
+  - [x] 10-chapter limit reducing memory from 559MB → ~150MB
+  - [x] Cache statistics tracking
+  - [x] 94.41% test coverage maintained
+- [ ] Next steps (MVP Completion)
+  - [ ] **Enhanced keyboard navigation** (Issue #21 - Priority 1)
+    - Virtual pagination with scroll-based navigation
+    - Chapter navigation (Left/Right arrows)
+    - Within-chapter scrolling (Up/Down, PgUp/PgDown)
+    - Progress indicator showing position within chapter
   - [ ] Basic reading themes (light/dark mode)
+- [ ] Post-MVP Enhancements
+  - [ ] True page-based pagination system (Issue #31)
+    - Replace virtual scrolling with calculated pages
+    - Stable page numbers
+    - Toggle between scroll and page modes
   - [ ] Bookmarks feature
   - [ ] PDF support
 
@@ -446,6 +459,7 @@ Record architectural decisions here as they're made:
 | 2025-12-03 | Performance profiling with statistical sampling | Sample chapters evenly (e.g., 10 of 100) for balance between thoroughness and speed while getting representative results. | docs/testing/performance-summary.md |
 | 2025-12-03 | LRU caching as Priority 1 optimization | Profiling revealed memory growth with images (up to 559MB). LRU cache will cap at ~150MB even for large books. | docs/testing/performance-summary.md |
 | 2025-12-03 | Chapter cache: Custom LRU with OrderedDict | Use custom LRU (not functools.lru_cache or external lib) for full control, memory tracking, and debugging. Phased approach: Phase 1=basic LRU (10 chapters), Phase 2=memory monitoring, Phase 3=multi-layer caching. Expected impact: 559MB → 150MB (73% reduction). | docs/architecture/chapter-caching-system.md |
+| 2025-12-03 | Phased pagination approach | Phase 1 (MVP): Virtual pagination with scroll-based navigation for quick UX improvement. Phase 2 (Post-MVP): True page-based pagination with stable page numbers and mode toggle. Prioritizes shipping MVP while planning for professional-grade enhancement. | Issue #21, Issue #31 |
 
 ## File Structure
 
