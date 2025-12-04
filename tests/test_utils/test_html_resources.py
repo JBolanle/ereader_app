@@ -54,7 +54,7 @@ class TestResolveImagesInHTML:
         # Check that it's now a data URL with responsive styling
         assert "data:image/png;base64," in resolved_html
         assert "images/test.png" not in resolved_html
-        assert 'style="max-width: 100%; height: auto;"' in resolved_html
+        assert 'style="max-width: 100%; max-height: 90vh; width: auto; height: auto; object-fit: contain;"' in resolved_html
 
     def test_resolve_multiple_images(self, tmp_path: Path) -> None:
         """Test resolving multiple image references in same HTML."""
@@ -112,7 +112,7 @@ class TestResolveImagesInHTML:
         assert resolved_html.count("data:image/jpeg;base64,") == 1
         assert "images/img1.png" not in resolved_html
         assert "images/img2.jpg" not in resolved_html
-        assert resolved_html.count('style="max-width: 100%; height: auto;"') == 2
+        assert resolved_html.count('style="max-width: 100%; max-height: 90vh; width: auto; height: auto; object-fit: contain;"') == 2
 
     def test_preserve_image_attributes(self, tmp_path: Path) -> None:
         """Test that image attributes (alt, class, etc.) are preserved."""
@@ -158,7 +158,7 @@ class TestResolveImagesInHTML:
         assert 'alt="Book Cover"' in resolved_html
         assert 'width="300"' in resolved_html
         assert "data:image/jpeg;base64," in resolved_html
-        assert 'style="max-width: 100%; height: auto;"' in resolved_html
+        assert 'style="max-width: 100%; max-height: 90vh; width: auto; height: auto; object-fit: contain;"' in resolved_html
 
     def test_skip_absolute_urls(self, tmp_path: Path) -> None:
         """Test that absolute URLs (http, https) are not modified."""
@@ -285,7 +285,7 @@ class TestResolveImagesInHTML:
         assert 'alt="Missing"' in resolved_html
 
     def test_responsive_style_added_to_images(self, tmp_path: Path) -> None:
-        """Test that responsive styling is added to make images fit viewport."""
+        """Test that responsive styling is added to make images fit viewport in both dimensions."""
         epub_file = tmp_path / "test.epub"
 
         container_xml = """<?xml version="1.0" encoding="UTF-8"?>
@@ -324,12 +324,16 @@ class TestResolveImagesInHTML:
         html = '<img src="large.jpg" alt="Large Image" />'
         resolved_html = resolve_images_in_html(html, book)
 
-        # Should have responsive style to prevent horizontal scrolling
-        assert 'style="max-width: 100%; height: auto;"' in resolved_html
-        # Style prevents images from exceeding viewport width
+        # Should have responsive style to prevent horizontal and vertical scrolling
+        assert 'style="max-width: 100%; max-height: 90vh; width: auto; height: auto; object-fit: contain;"' in resolved_html
+        # Style prevents images from exceeding viewport dimensions
         assert "max-width: 100%" in resolved_html
-        # height: auto maintains aspect ratio
+        assert "max-height: 90vh" in resolved_html
+        # width/height: auto maintains aspect ratio
+        assert "width: auto" in resolved_html
         assert "height: auto" in resolved_html
+        # object-fit: contain scales image to fit within bounds
+        assert "object-fit: contain" in resolved_html
 
     def test_html_without_images_unchanged(self, tmp_path: Path) -> None:
         """Test that HTML without images passes through unchanged."""

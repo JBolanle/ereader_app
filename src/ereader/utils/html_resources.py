@@ -98,9 +98,11 @@ def resolve_images_in_html(
             )
 
             # Reconstruct the img tag with data URL and responsive styling
-            # Add max-width: 100% to prevent images from exceeding viewport width
-            # and height: auto to maintain aspect ratio
-            style = 'max-width: 100%; height: auto;'
+            # max-width: 100% prevents images from exceeding viewport width
+            # max-height: 90vh prevents images from exceeding viewport height (90vh leaves margin)
+            # width/height: auto maintains aspect ratio
+            # object-fit: contain scales image to fit within bounds
+            style = 'max-width: 100%; max-height: 90vh; width: auto; height: auto; object-fit: contain;'
             return f'<img {before_src}src="{data_url}" style="{style}"{after_src}>'
 
         except CorruptedEPUBError:
