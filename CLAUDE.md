@@ -380,10 +380,12 @@ For complex implementations:
   - [ ] Complete widget library mastery
 - [x] Understand EPUB format well enough to explain it (structure understood)
 - [ ] Learn proper Python packaging for distribution
-- [x] Master pytest and testing patterns (MAJOR PROGRESS)
+- [x] Master pytest and testing patterns (COMPLETED)
   - [x] Integration tests for signal chains
   - [x] Headless GUI testing strategies
   - [x] Test organization (unit vs integration)
+  - [x] pytest-qt for professional UI testing
+  - [x] Signal testing with qtbot.waitSignal()
   - [ ] Advanced mocking patterns
 - [x] Professional Git/GitHub workflow (branching, PRs, code review, merging)
 
@@ -458,6 +460,13 @@ These things I must implement myself (for learning):
   - [x] Full MVC signal chain (BookViewer → Controller → MainWindow)
   - [x] 100% test coverage on new code (42 new tests)
   - [x] 95.48% overall coverage maintained (167 tests)
+- [x] **pytest-qt integration** (COMPLETED - PR #34) ✅
+  - [x] pytest-qt added to dev dependencies
+  - [x] 31 UI tests refactored to use qtbot
+  - [x] Views coverage: 0% → 88%
+  - [x] Overall coverage: 86% → 91% (+5%)
+  - [x] Comprehensive pytest-qt patterns documentation
+  - [x] All 169 tests passing with zero linting issues
 - [ ] Next steps (MVP Completion)
   - [ ] Basic reading themes (light/dark mode)
 - [ ] Post-MVP Enhancements
@@ -493,6 +502,7 @@ Record architectural decisions here as they're made:
 | 2025-12-04 | Keyboard navigation: Virtual pagination (Phase 1) | Scroll-based navigation with 50% overlap for arrow keys provides smooth UX while shipping MVP faster. Phase 2 will add true page-based pagination. | Issue #21, Issue #31 |
 | 2025-12-04 | Scroll amounts: 50% for arrows, 100% for Page keys | UX research showed 50% overlap preserves reading context while arrows feel responsive. Full page for Page keys follows standard desktop conventions. | docs/architecture/keyboard-navigation-architecture.md |
 | 2025-12-04 | Signal connection order: After content load | Connect scrollbar signals after initial content to prevent spurious emissions during initialization. Improves maintainability and initialization clarity. | Code review improvement |
+| 2025-12-04 | pytest-qt for UI testing | Migrate from manual Qt testing to pytest-qt for industry-standard UI testing. Benefits: reliable signal testing with qtbot.waitSignal(), automatic widget cleanup, better event loop control, eliminates race conditions. Improved views coverage from 0% to 88%. | docs/testing/pytest-qt-patterns.md |
 
 ## File Structure
 
