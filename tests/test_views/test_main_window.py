@@ -388,31 +388,29 @@ class TestMainWindowTheme:
         """Test applying light theme."""
         main_window._apply_theme(LIGHT_THEME)
 
-        # Check book viewer has light theme
+        # Check book viewer has light theme (uses surface for content background)
         viewer_stylesheet = main_window._book_viewer._renderer.styleSheet()
-        assert LIGHT_THEME.background in viewer_stylesheet
+        assert LIGHT_THEME.surface in viewer_stylesheet
         assert LIGHT_THEME.text in viewer_stylesheet
 
-        # Check status bar has light theme
-        status_bar = main_window.statusBar()
-        assert status_bar is not None
-        status_stylesheet = status_bar.styleSheet()
-        assert LIGHT_THEME.status_bg in status_stylesheet
+        # Check main window has theme applied (global stylesheet includes status bar)
+        window_stylesheet = main_window.styleSheet()
+        assert LIGHT_THEME.status_bg in window_stylesheet
+        assert LIGHT_THEME.background in window_stylesheet
 
     def test_apply_dark_theme(self, qtbot, main_window):
         """Test applying dark theme."""
         main_window._apply_theme(DARK_THEME)
 
-        # Check book viewer has dark theme
+        # Check book viewer has dark theme (uses surface for content background)
         viewer_stylesheet = main_window._book_viewer._renderer.styleSheet()
-        assert DARK_THEME.background in viewer_stylesheet
+        assert DARK_THEME.surface in viewer_stylesheet
         assert DARK_THEME.text in viewer_stylesheet
 
-        # Check status bar has dark theme
-        status_bar = main_window.statusBar()
-        assert status_bar is not None
-        status_stylesheet = status_bar.styleSheet()
-        assert DARK_THEME.status_bg in status_stylesheet
+        # Check main window has theme applied (global stylesheet includes status bar)
+        window_stylesheet = main_window.styleSheet()
+        assert DARK_THEME.status_bg in window_stylesheet
+        assert DARK_THEME.background in window_stylesheet
 
     def test_theme_switching(self, qtbot, main_window):
         """Test switching between themes."""
@@ -426,7 +424,7 @@ class TestMainWindowTheme:
 
         # Verify stylesheets changed
         assert light_stylesheet != dark_stylesheet
-        assert DARK_THEME.background in dark_stylesheet
+        assert DARK_THEME.surface in dark_stylesheet
 
     def test_handle_theme_selection(self, qtbot, main_window):
         """Test theme selection handler."""
