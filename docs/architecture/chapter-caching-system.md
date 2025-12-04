@@ -440,7 +440,7 @@ class EPUBController:
    - Multiple books don't collide
    - Cache cleared on book change
 
-3. **Performance Tests** (update `profile_performance.py`):
+3. **Performance Tests** (update `scripts/profile_performance.py`):
    - Memory usage with cache enabled
    - Compare before/after caching
    - Cache hit rates for typical reading patterns

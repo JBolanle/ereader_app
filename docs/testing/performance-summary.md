@@ -242,13 +242,13 @@ Run performance profiling:
 
 ```bash
 # Profile with default (Mamba Mentality)
-uv run python profile_performance.py
+uv run python scripts/profile_performance.py
 
 # Profile specific EPUB
-uv run python profile_performance.py path/to/book.epub
+uv run python scripts/profile_performance.py path/to/book.epub
 
 # Generate report file
-uv run python profile_performance.py --output docs/testing/report.md
+uv run python scripts/profile_performance.py --output docs/testing/report.md
 ```
 
 ### What to Monitor
