@@ -11,9 +11,8 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from ereader.exceptions import EReaderError
 from ereader.models.epub import EPUBBook
-from ereader.utils.cache import ChapterCache
+from ereader.utils.cache_manager import CacheManager
 from ereader.utils.html_resources import resolve_images_in_html
-from ereader.utils.memory_monitor import MemoryMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +57,13 @@ class ReaderController(QObject):
         self._current_chapter_index: int = 0
         self._current_scroll_percentage: float = 0.0
 
-        # Chapter caching for performance
-        self._chapter_cache = ChapterCache(maxsize=10)
-
-        # Memory monitoring
-        self._memory_monitor = MemoryMonitor(threshold_mb=150)
+        # Multi-layer caching with shared memory budget
+        self._cache_manager = CacheManager(
+            rendered_maxsize=10,
+            raw_maxsize=20,
+            image_max_memory_mb=50,
+            total_memory_threshold_mb=150,
+        )
 
         logger.debug("ReaderController initialized")
 
@@ -85,9 +86,9 @@ class ReaderController(QObject):
             # Reset to first chapter
             self._current_chapter_index = 0
 
-            # Clear cache when opening a new book
-            self._chapter_cache.clear()
-            logger.debug("Chapter cache cleared for new book")
+            # Clear all caches when opening a new book
+            self._cache_manager.clear_all()
+            logger.debug("All caches cleared for new book")
 
             # Get book metadata
             title = self._book.title
@@ -178,46 +179,51 @@ class ReaderController(QObject):
             # Generate cache key
             cache_key = f"{self._book.filepath}:{index}"
 
-            # Try cache first
-            cached_html = self._chapter_cache.get(cache_key)
+            # Try rendered chapters cache first
+            cached_html = self._cache_manager.rendered_chapters.get(cache_key)
             if cached_html is not None:
-                logger.debug("Using cached chapter %d", index)
+                logger.debug("Using cached rendered chapter %d", index)
                 content = cached_html
             else:
-                # Cache miss - render and store
-                logger.debug("Cache miss - rendering chapter %d", index)
+                # Cache miss - try raw content cache
+                logger.debug("Rendered cache miss - checking raw cache for chapter %d", index)
 
-                # Get chapter href and content
+                # Get chapter href first (needed for image resolution)
                 chapter_href = self._book.get_chapter_href(index)
-                raw_content = self._book.get_chapter_content(index)
-                logger.debug(
-                    "Chapter content loaded (href: %s, length: %d bytes)",
-                    chapter_href,
-                    len(raw_content)
-                )
+
+                # Try raw content cache
+                cached_raw = self._cache_manager.raw_chapters.get(cache_key)
+                if cached_raw is not None:
+                    logger.debug("Using cached raw chapter %d", index)
+                    raw_content = cached_raw
+                else:
+                    # Complete miss - load from book
+                    logger.debug("Complete cache miss - loading chapter %d from book", index)
+                    raw_content = self._book.get_chapter_content(index)
+                    logger.debug(
+                        "Chapter content loaded (href: %s, length: %d bytes)",
+                        chapter_href,
+                        len(raw_content)
+                    )
+
+                    # Store raw content in cache
+                    self._cache_manager.raw_chapters.set(cache_key, raw_content)
+                    logger.debug("Raw chapter %d cached", index)
 
                 # Resolve image references in HTML
                 # Pass chapter href so images are resolved relative to the chapter file
                 content = resolve_images_in_html(raw_content, self._book, chapter_href=chapter_href)
                 logger.debug("Image resources resolved, final length: %d bytes", len(content))
 
-                # Store in cache
-                self._chapter_cache.set(cache_key, content)
-                logger.debug("Chapter %d cached", index)
+                # Store rendered content in cache
+                self._cache_manager.rendered_chapters.set(cache_key, content)
+                logger.debug("Rendered chapter %d cached", index)
 
             # Log cache statistics
-            stats = self._chapter_cache.stats()
-            logger.debug(
-                "Cache stats: size=%d/%d, hits=%d, misses=%d, hit_rate=%.1f%%",
-                stats["size"],
-                stats["maxsize"],
-                stats["hits"],
-                stats["misses"],
-                stats["hit_rate"]
-            )
+            self._cache_manager.log_stats()
 
             # Check memory usage and log warnings if needed
-            self._memory_monitor.check_threshold()
+            self._cache_manager.check_memory_threshold()
 
             # Emit content to views
             self.content_ready.emit(content)
