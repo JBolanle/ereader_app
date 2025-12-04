@@ -445,6 +445,7 @@ Record architectural decisions here as they're made:
 | 2025-12-03 | Context-aware path resolution | EPUB chapter images are relative to chapter file location, not OPF. Pass chapter_href through resolution chain to handle relative paths correctly. | - |
 | 2025-12-03 | Performance profiling with statistical sampling | Sample chapters evenly (e.g., 10 of 100) for balance between thoroughness and speed while getting representative results. | docs/testing/performance-summary.md |
 | 2025-12-03 | LRU caching as Priority 1 optimization | Profiling revealed memory growth with images (up to 559MB). LRU cache will cap at ~150MB even for large books. | docs/testing/performance-summary.md |
+| 2025-12-03 | Chapter cache: Custom LRU with OrderedDict | Use custom LRU (not functools.lru_cache or external lib) for full control, memory tracking, and debugging. Phased approach: Phase 1=basic LRU (10 chapters), Phase 2=memory monitoring, Phase 3=multi-layer caching. Expected impact: 559MB → 150MB (73% reduction). | docs/architecture/chapter-caching-system.md |
 
 ## File Structure
 

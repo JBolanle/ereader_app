@@ -6,7 +6,7 @@ Read CLAUDE.md for project context and code standards.
 
 ## Your Workflow
 
-1. If given an issue number, fetch it: `gh issue view [number]`
+1. If given an issue number, fetch it: `gh issue view [number]`.
 2. Read the relevant spec in docs/specs/ if one exists
 3. Understand the task requirements fully before coding
 4. Create a branch: `git checkout -b [type]/[short-description]`

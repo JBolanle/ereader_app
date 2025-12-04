@@ -32,6 +32,20 @@ This project serves dual purposes:
   - [x] Multiple format support (PNG, JPG, GIF, SVG, WebP, BMP)
   - [x] Path normalization for complex EPUB structures
   - [x] Graceful handling of missing images
+- [x] Image path resolution fix (PR #25) ✅
+  - [x] Context-aware path resolution for images in chapters
+  - [x] Images resolved relative to chapter file location
+- [x] Performance profiling (PR #26) ✅
+  - [x] Comprehensive profiling system with CLI
+  - [x] Statistical analysis across diverse EPUBs (201MB, 3MB, 0.65MB)
+  - [x] Memory tracking identified optimization opportunities
+  - [x] Performance recommendations documented
+- [x] Chapter caching for memory optimization (PR #27) ✅
+  - [x] LRU cache with OrderedDict (10 chapter capacity)
+  - [x] Transparent integration in ReaderController
+  - [x] Expected memory reduction: 559MB → 150MB (73%)
+  - [x] Cache statistics and monitoring
+  - [x] 100% test coverage on new code
 - [ ] **Next up**: Basic reading themes (light/dark mode) OR arrow key navigation (Issue #21)
 
 See [CLAUDE.md](CLAUDE.md) for detailed development context and current sprint.
