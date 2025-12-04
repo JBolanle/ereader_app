@@ -10,8 +10,6 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
-from ereader.models.theme import DEFAULT_THEME, Theme
-
 logger = logging.getLogger(__name__)
 
 
@@ -64,54 +62,7 @@ class NavigationBar(QWidget):
         layout.addStretch()  # Push buttons to center
         layout.setContentsMargins(10, 5, 10, 5)
 
-        # Apply default theme
-        self.apply_theme(DEFAULT_THEME)
-
         logger.debug("NavigationBar initialized")
-
-    def apply_theme(self, theme: Theme) -> None:
-        """Apply a visual theme to the navigation bar.
-
-        This method updates the stylesheet of the navigation bar and buttons
-        to match the current theme.
-
-        Args:
-            theme: The theme to apply.
-        """
-        logger.debug("Applying theme to NavigationBar: %s", theme.name)
-
-        # Apply theme to the navigation bar widget itself
-        self.setStyleSheet(f"""
-            NavigationBar {{
-                background-color: {theme.status_bg};
-            }}
-        """)
-
-        # Apply theme to buttons
-        button_stylesheet = f"""
-            QPushButton {{
-                background-color: {theme.background};
-                color: {theme.text};
-                border: 1px solid {theme.text};
-                border-radius: 4px;
-                padding: 8px 16px;
-                min-width: 80px;
-            }}
-            QPushButton:hover {{
-                background-color: {theme.status_bg};
-            }}
-            QPushButton:pressed {{
-                background-color: {theme.text};
-                color: {theme.background};
-            }}
-            QPushButton:disabled {{
-                opacity: 0.5;
-            }}
-        """
-        self._previous_button.setStyleSheet(button_stylesheet)
-        self._next_button.setStyleSheet(button_stylesheet)
-
-        logger.debug("Theme applied to NavigationBar")
 
     def update_buttons(self, can_go_back: bool, can_go_forward: bool) -> None:
         """Update navigation button enabled/disabled state.

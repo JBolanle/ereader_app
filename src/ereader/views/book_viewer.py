@@ -56,9 +56,6 @@ class BookViewer(QWidget):
         font.setPointSize(12)
         self._renderer.setFont(font)
 
-        # Store current theme for welcome message
-        self._current_theme = DEFAULT_THEME
-
         # Apply default theme
         self.apply_theme(DEFAULT_THEME)
 
@@ -89,9 +86,6 @@ class BookViewer(QWidget):
         """
         logger.debug("Applying theme: %s", theme.name)
 
-        # Store current theme
-        self._current_theme = theme
-
         # Generate stylesheet from theme colors
         stylesheet = f"""
             QTextBrowser {{
@@ -105,19 +99,13 @@ class BookViewer(QWidget):
         logger.debug("Theme applied: %s", theme.name)
 
     def _show_welcome_message(self) -> None:
-        """Display a welcome message when no book is loaded.
-
-        The welcome message adapts to the current theme colors.
-        """
-        # Use 50% opacity of text color for secondary text
-        welcome_html = f"""
+        """Display a welcome message when no book is loaded."""
+        welcome_html = """
         <html>
-        <body style="text-align: center; padding-top: 100px; font-family: sans-serif;
-                     background-color: {self._current_theme.background};
-                     color: {self._current_theme.text};">
+        <body style="text-align: center; padding-top: 100px; font-family: sans-serif;">
             <h1>Welcome to E-Reader</h1>
-            <p style="opacity: 0.6;">Open an EPUB file to start reading</p>
-            <p style="opacity: 0.6; font-size: 0.9em;">File → Open (Ctrl+O)</p>
+            <p style="color: gray;">Open an EPUB file to start reading</p>
+            <p style="color: gray; font-size: 0.9em;">File → Open (Ctrl+O)</p>
         </body>
         </html>
         """

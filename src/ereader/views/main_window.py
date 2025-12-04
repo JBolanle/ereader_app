@@ -303,9 +303,6 @@ class MainWindow(QMainWindow):
         # Apply to book viewer
         self._book_viewer.apply_theme(theme)
 
-        # Apply to navigation bar
-        self._navigation_bar.apply_theme(theme)
-
         # Apply to status bar
         status_bar = self.statusBar()
         if status_bar is not None:
