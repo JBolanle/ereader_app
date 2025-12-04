@@ -13,6 +13,7 @@ from ereader.exceptions import EReaderError
 from ereader.models.epub import EPUBBook
 from ereader.utils.cache import ChapterCache
 from ereader.utils.html_resources import resolve_images_in_html
+from ereader.utils.memory_monitor import MemoryMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,9 @@ class ReaderController(QObject):
 
         # Chapter caching for performance
         self._chapter_cache = ChapterCache(maxsize=10)
+
+        # Memory monitoring
+        self._memory_monitor = MemoryMonitor(threshold_mb=150)
 
         logger.debug("ReaderController initialized")
 
@@ -211,6 +215,9 @@ class ReaderController(QObject):
                 stats["misses"],
                 stats["hit_rate"]
             )
+
+            # Check memory usage and log warnings if needed
+            self._memory_monitor.check_threshold()
 
             # Emit content to views
             self.content_ready.emit(content)

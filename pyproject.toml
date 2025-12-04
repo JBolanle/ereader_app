@@ -72,6 +72,9 @@ asyncio_mode = "auto"
 addopts = "-v"
 qt_api = "pyqt6"
 qt_log_level_fail = "WARNING"
+qt_log_ignore = [
+    "Populating font family aliases.*",
+]
 
 [tool.coverage.run]
 omit = [

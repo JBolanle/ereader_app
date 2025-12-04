@@ -5,6 +5,8 @@ and memory usage during book reading.
 """
 
 import logging
+import sys
+import time
 from collections import OrderedDict
 from typing import Any
 
@@ -44,6 +46,8 @@ class ChapterCache:
         self._maxsize = maxsize
         self._hits = 0
         self._misses = 0
+        self._last_eviction_time: float | None = None
+        self._creation_time = time.time()
 
         logger.info("ChapterCache initialized with maxsize=%d", maxsize)
 
@@ -94,6 +98,7 @@ class ChapterCache:
             if len(self._cache) > self._maxsize:
                 evicted_key = next(iter(self._cache))
                 self._cache.popitem(last=False)  # Remove oldest (first item)
+                self._last_eviction_time = time.time()
                 logger.info(
                     "Cache EVICTION: %s (cache full: %d/%d)",
                     evicted_key,
@@ -123,9 +128,22 @@ class ChapterCache:
             - hits: Number of cache hits
             - misses: Number of cache misses
             - hit_rate: Percentage of requests that hit cache
+            - estimated_memory_mb: Estimated cache memory usage in MB
+            - avg_item_size_kb: Average size of cached items in KB
+            - time_since_last_eviction: Seconds since last eviction (or None)
+            - cache_age_seconds: Seconds since cache creation
         """
         total = self._hits + self._misses
         hit_rate = (self._hits / total * 100) if total > 0 else 0.0
+
+        # Calculate estimated memory usage
+        total_size_bytes = sum(sys.getsizeof(value) for value in self._cache.values())
+        estimated_memory_mb = total_size_bytes / (1024 * 1024)
+        avg_item_size_kb = (total_size_bytes / len(self._cache) / 1024) if len(self._cache) > 0 else 0.0
+
+        # Calculate time metrics
+        cache_age = time.time() - self._creation_time
+        time_since_eviction = (time.time() - self._last_eviction_time) if self._last_eviction_time is not None else None
 
         return {
             "size": len(self._cache),
@@ -133,6 +151,10 @@ class ChapterCache:
             "hits": self._hits,
             "misses": self._misses,
             "hit_rate": hit_rate,
+            "estimated_memory_mb": estimated_memory_mb,
+            "avg_item_size_kb": avg_item_size_kb,
+            "time_since_last_eviction": time_since_eviction,
+            "cache_age_seconds": cache_age,
         }
 
     def __len__(self) -> int:

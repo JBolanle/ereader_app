@@ -1,5 +1,7 @@
 """Tests for caching utilities."""
 
+import time
+
 import pytest
 
 from ereader.utils.cache import ChapterCache
@@ -186,6 +188,10 @@ class TestChapterCache:
         assert stats["hits"] == 0
         assert stats["misses"] == 0
         assert stats["hit_rate"] == 0.0
+        assert stats["estimated_memory_mb"] == 0.0
+        assert stats["avg_item_size_kb"] == 0.0
+        assert stats["time_since_last_eviction"] is None
+        assert stats["cache_age_seconds"] >= 0.0
 
     def test_len_operator(self) -> None:
         """len() should return number of cached items."""
@@ -272,3 +278,132 @@ class TestChapterCache:
         stats = cache.stats()
         assert stats["hits"] == 3
         assert stats["misses"] == 0
+
+
+class TestChapterCacheEnhancedStats:
+    """Test suite for enhanced cache statistics (Phase 2)."""
+
+    def test_stats_memory_estimation(self) -> None:
+        """Stats should estimate memory usage."""
+        cache = ChapterCache()
+
+        # Add some content
+        cache.set("key1", "<html>Small content</html>")
+        cache.set("key2", "<html>More content here</html>")
+
+        stats = cache.stats()
+
+        # Memory should be non-zero
+        assert stats["estimated_memory_mb"] > 0.0
+        # Average item size should be non-zero
+        assert stats["avg_item_size_kb"] > 0.0
+
+    def test_stats_memory_grows_with_content(self) -> None:
+        """Stats should show memory growing as content is added."""
+        cache = ChapterCache()
+
+        # Add small content
+        cache.set("small", "x" * 100)
+        small_stats = cache.stats()
+
+        # Add large content
+        cache.set("large", "x" * 10000)
+        large_stats = cache.stats()
+
+        # Memory should increase
+        assert large_stats["estimated_memory_mb"] > small_stats["estimated_memory_mb"]
+        assert large_stats["avg_item_size_kb"] > small_stats["avg_item_size_kb"]
+
+    def test_stats_time_since_last_eviction_none(self) -> None:
+        """Stats should show None for time_since_last_eviction when no evictions."""
+        cache = ChapterCache(maxsize=5)
+
+        # Add items without triggering eviction
+        cache.set("key1", "value1")
+        cache.set("key2", "value2")
+
+        stats = cache.stats()
+        assert stats["time_since_last_eviction"] is None
+
+    def test_stats_time_since_last_eviction_set(self) -> None:
+        """Stats should track time since last eviction."""
+        cache = ChapterCache(maxsize=2)
+
+        # Fill cache
+        cache.set("key1", "value1")
+        cache.set("key2", "value2")
+
+        # Trigger eviction
+        cache.set("key3", "value3")
+
+        stats = cache.stats()
+        assert stats["time_since_last_eviction"] is not None
+        assert stats["time_since_last_eviction"] >= 0.0
+
+    def test_stats_time_since_last_eviction_updates(self) -> None:
+        """Stats should update time_since_last_eviction with each eviction."""
+        cache = ChapterCache(maxsize=2)
+
+        # Fill cache
+        cache.set("key1", "value1")
+        cache.set("key2", "value2")
+
+        # First eviction
+        cache.set("key3", "value3")
+        time.sleep(0.05)  # Wait a bit
+
+        # Second eviction
+        cache.set("key4", "value4")
+
+        stats = cache.stats()
+        # Time should be small (recent eviction)
+        assert stats["time_since_last_eviction"] < 0.1
+
+    def test_stats_cache_age_seconds(self) -> None:
+        """Stats should track cache age since creation."""
+        cache = ChapterCache()
+
+        # Check immediately after creation
+        stats1 = cache.stats()
+        assert stats1["cache_age_seconds"] < 0.1
+
+        # Wait and check again
+        time.sleep(0.1)
+        stats2 = cache.stats()
+        assert stats2["cache_age_seconds"] >= 0.1
+        assert stats2["cache_age_seconds"] > stats1["cache_age_seconds"]
+
+    def test_stats_all_fields_present(self) -> None:
+        """Stats should include all expected fields."""
+        cache = ChapterCache()
+        cache.set("key1", "value1")
+
+        stats = cache.stats()
+
+        # Original fields
+        assert "size" in stats
+        assert "maxsize" in stats
+        assert "hits" in stats
+        assert "misses" in stats
+        assert "hit_rate" in stats
+
+        # New Phase 2 fields
+        assert "estimated_memory_mb" in stats
+        assert "avg_item_size_kb" in stats
+        assert "time_since_last_eviction" in stats
+        assert "cache_age_seconds" in stats
+
+    def test_stats_avg_item_size_calculation(self) -> None:
+        """Stats should correctly calculate average item size."""
+        cache = ChapterCache()
+
+        # Add items of similar size
+        cache.set("key1", "x" * 1000)
+        cache.set("key2", "y" * 1000)
+
+        stats = cache.stats()
+
+        # Average should be approximately 1KB (plus some overhead)
+        # sys.getsizeof includes string overhead, so it will be > 1KB
+        assert stats["avg_item_size_kb"] > 1.0
+        assert stats["avg_item_size_kb"] < 10.0  # Reasonable upper bound

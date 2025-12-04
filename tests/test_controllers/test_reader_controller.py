@@ -988,3 +988,138 @@ class TestReaderControllerProgressTracking:
         # Verify progress shows 0% for new chapter
         emitted_progress = progress_spy.call_args[0][0]
         assert "Chapter 2 of 5 • 0% through chapter" == emitted_progress
+
+
+class TestReaderControllerMemoryMonitoring:
+    """Test memory monitoring integration in ReaderController (Phase 2)."""
+
+    def test_init_creates_memory_monitor(self):
+        """Test that ReaderController initializes with MemoryMonitor."""
+        controller = ReaderController()
+
+        assert hasattr(controller, '_memory_monitor')
+        assert controller._memory_monitor is not None
+        assert controller._memory_monitor._threshold_mb == 150
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_memory_check_called_after_chapter_load(self, mock_resolve_images):
+        """Test that memory threshold is checked after loading a chapter."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.return_value = "text/chapter0.html"
+        mock_book.get_chapter_content.return_value = "<p>Chapter content</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Mock the memory monitor's check_threshold method
+        with patch.object(controller._memory_monitor, 'check_threshold') as mock_check:
+            mock_check.return_value = False
+
+            # Load a chapter
+            controller._load_chapter(0)
+
+            # Verify memory check was called
+            mock_check.assert_called_once()
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('psutil.Process')
+    def test_memory_warning_logged_when_threshold_exceeded(
+        self, mock_process_class, mock_resolve_images, caplog: "pytest.LogCaptureFixture"
+    ):
+        """Test that memory warnings are logged when threshold exceeded."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        # Mock psutil to return high memory usage
+        mock_mem_info = MagicMock()
+        mock_mem_info.rss = 200 * 1024 * 1024  # 200 MB
+
+        mock_process = MagicMock()
+        mock_process.memory_info.return_value = mock_mem_info
+        mock_process_class.return_value = mock_process
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.return_value = "text/chapter0.html"
+        mock_book.get_chapter_content.return_value = "<p>Chapter content</p>"
+
+        # Create controller (which creates MemoryMonitor with mocked psutil)
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Load a chapter which will trigger memory check
+        with caplog.at_level("WARNING"):
+            controller._load_chapter(0)
+
+            # Verify warning was logged
+            assert any("exceeds threshold" in record.message for record in caplog.records)
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_memory_check_on_cache_hit(self, mock_resolve_images):
+        """Test that memory is checked even on cache hits."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.return_value = "text/chapter0.html"
+        mock_book.get_chapter_content.return_value = "<p>Chapter content</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Load chapter once to cache it
+        with patch.object(controller._memory_monitor, 'check_threshold') as mock_check:
+            mock_check.return_value = False
+            controller._load_chapter(0)
+            first_call_count = mock_check.call_count
+
+        # Load same chapter again (cache hit)
+        with patch.object(controller._memory_monitor, 'check_threshold') as mock_check:
+            mock_check.return_value = False
+            controller._load_chapter(0)
+            second_call_count = mock_check.call_count
+
+        # Memory check should be called on both loads
+        assert first_call_count == 1
+        assert second_call_count == 1
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_memory_monitoring_with_sequential_chapters(self, mock_resolve_images):
+        """Test that memory is monitored during sequential reading."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 15
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        with patch.object(controller._memory_monitor, 'check_threshold') as mock_check:
+            mock_check.return_value = False
+
+            # Load multiple chapters sequentially
+            for i in range(10):
+                controller._load_chapter(i)
+
+            # Memory should be checked 10 times (once per chapter load)
+            assert mock_check.call_count == 10
+
+    def test_memory_monitor_stats_accessible(self):
+        """Test that memory monitor stats can be accessed."""
+        controller = ReaderController()
+
+        stats = controller._memory_monitor.get_stats()
+
+        # Verify stats structure
+        assert "current_usage_mb" in stats
+        assert "threshold_mb" in stats
+        assert "threshold_exceeded" in stats
+        assert stats["threshold_mb"] == 150
