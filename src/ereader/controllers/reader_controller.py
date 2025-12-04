@@ -33,6 +33,8 @@ class ReaderController(QObject):
             Args: can_go_back (bool), can_go_forward (bool)
         content_ready: Emitted when chapter content is ready to display.
             Args: html content (str)
+        reading_progress_changed: Emitted when reading progress changes.
+            Args: formatted progress string (str)
         error_occurred: Emitted when an error needs to be shown to the user.
             Args: error title (str), error message (str)
     """
@@ -42,6 +44,7 @@ class ReaderController(QObject):
     chapter_changed = pyqtSignal(int, int)  # current, total
     navigation_state_changed = pyqtSignal(bool, bool)  # can_back, can_forward
     content_ready = pyqtSignal(str)  # html content
+    reading_progress_changed = pyqtSignal(str)  # formatted progress string
     error_occurred = pyqtSignal(str, str)  # error title, message
 
     def __init__(self) -> None:
@@ -52,6 +55,7 @@ class ReaderController(QObject):
         # Reading state
         self._book: EPUBBook | None = None
         self._current_chapter_index: int = 0
+        self._current_scroll_percentage: float = 0.0
 
         # Chapter caching for performance
         self._chapter_cache = ChapterCache(maxsize=10)
@@ -211,9 +215,15 @@ class ReaderController(QObject):
             # Emit content to views
             self.content_ready.emit(content)
 
+            # Reset scroll percentage (new chapter always starts at top)
+            self._current_scroll_percentage = 0.0
+
             # Update chapter position info
             total_chapters = self._book.get_chapter_count()
             self.chapter_changed.emit(index + 1, total_chapters)  # 1-based for display
+
+            # Emit progress update
+            self._emit_progress_update()
 
             # Update navigation button states
             self._update_navigation_state()
@@ -248,3 +258,33 @@ class ReaderController(QObject):
 
         logger.debug("Navigation state: back=%s, forward=%s", can_go_back, can_go_forward)
         self.navigation_state_changed.emit(can_go_back, can_go_forward)
+
+    def on_scroll_changed(self, percentage: float) -> None:
+        """Handle scroll position changes from BookViewer.
+
+        Updates internal scroll state and emits formatted progress string.
+        This is a public slot method that can be connected to signals.
+
+        Args:
+            percentage: Scroll position from 0-100.
+        """
+        logger.debug("Scroll position changed: %.1f%%", percentage)
+        self._current_scroll_percentage = percentage
+        self._emit_progress_update()
+
+    def _emit_progress_update(self) -> None:
+        """Emit formatted reading progress string.
+
+        Formats the current chapter position and scroll percentage into
+        a user-friendly progress string and emits the reading_progress_changed signal.
+        """
+        if self._book is None:
+            return
+
+        current = self._current_chapter_index + 1  # 1-based for display
+        total = self._book.get_chapter_count()
+        scroll_pct = self._current_scroll_percentage
+
+        progress = f"Chapter {current} of {total} • {scroll_pct:.0f}% through chapter"
+        logger.debug("Emitting progress update: %s", progress)
+        self.reading_progress_changed.emit(progress)

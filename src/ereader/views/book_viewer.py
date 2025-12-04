@@ -7,6 +7,7 @@ the BookRenderer protocol to allow swapping implementations in the future.
 
 import logging
 
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QTextBrowser, QVBoxLayout, QWidget
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,14 @@ class BookViewer(QWidget):
 
     QTextBrowser supports a subset of HTML 4 and CSS, which is sufficient for
     most EPUB books. It's lightweight and has a simple API.
+
+    Signals:
+        scroll_position_changed: Emitted when scroll position changes.
+            Args: percentage (float) from 0.0 to 100.0
     """
+
+    # Signals
+    scroll_position_changed = pyqtSignal(float)  # percentage 0-100
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the book viewer.
@@ -49,6 +57,9 @@ class BookViewer(QWidget):
         layout.addWidget(self._renderer)
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
+
+        # Connect scrollbar changes to emit our signal
+        self._renderer.verticalScrollBar().valueChanged.connect(self._on_scroll_changed)
 
         # Show welcome message
         self._show_welcome_message()
@@ -125,3 +136,83 @@ class BookViewer(QWidget):
         font.setPointSize(size)
         self._renderer.setFont(font)
         logger.debug("Font size updated")
+
+    def scroll_by_pages(self, pages: float) -> None:
+        """Scroll by a number of pages (viewport heights).
+
+        Args:
+            pages: Number of pages to scroll. Positive = down, negative = up.
+                   Examples: 0.5 = half page down, -1.0 = full page up, 1.0 = page down.
+        """
+        logger.debug("Scrolling by %.1f pages", pages)
+        scrollbar = self._renderer.verticalScrollBar()
+
+        # Calculate new position
+        page_step = scrollbar.pageStep()
+        current_value = scrollbar.value()
+        scroll_amount = int(pages * page_step)
+        new_value = current_value + scroll_amount
+
+        # Clamp to valid range
+        minimum = scrollbar.minimum()
+        maximum = scrollbar.maximum()
+        clamped_value = max(minimum, min(maximum, new_value))
+
+        logger.debug(
+            "Scroll calculation: current=%d, amount=%d, new=%d, clamped=%d (range: %d-%d)",
+            current_value,
+            scroll_amount,
+            new_value,
+            clamped_value,
+            minimum,
+            maximum,
+        )
+
+        # Set new value (signal emitted automatically via valueChanged connection)
+        scrollbar.setValue(clamped_value)
+
+    def scroll_to_top(self) -> None:
+        """Scroll to the top of the chapter."""
+        logger.debug("Scrolling to top")
+        scrollbar = self._renderer.verticalScrollBar()
+        scrollbar.setValue(scrollbar.minimum())
+
+    def scroll_to_bottom(self) -> None:
+        """Scroll to the bottom of the chapter."""
+        logger.debug("Scrolling to bottom")
+        scrollbar = self._renderer.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
+    def get_scroll_percentage(self) -> float:
+        """Get current scroll position as a percentage (0-100).
+
+        Returns:
+            Float from 0.0 to 100.0 representing scroll position.
+            0.0 = at top, 100.0 = at bottom.
+            If content is not scrollable (fits in viewport), returns 0.0.
+        """
+        scrollbar = self._renderer.verticalScrollBar()
+        value = scrollbar.value()
+        minimum = scrollbar.minimum()
+        maximum = scrollbar.maximum()
+
+        # Check if scrollable
+        if maximum == minimum:
+            logger.debug("Content not scrollable, returning 0.0%%")
+            return 0.0
+
+        # Calculate percentage
+        percentage = ((value - minimum) / (maximum - minimum)) * 100.0
+        logger.debug("Scroll percentage: %.1f%%", percentage)
+        return percentage
+
+    def _on_scroll_changed(self) -> None:
+        """Handle scroll position changes and emit signal.
+
+        Called when the scrollbar value changes, either from user interaction
+        or programmatic scrolling. Emits scroll_position_changed signal with
+        the current scroll percentage.
+        """
+        percentage = self.get_scroll_percentage()
+        logger.debug("Scroll changed, emitting signal: %.1f%%", percentage)
+        self.scroll_position_changed.emit(percentage)

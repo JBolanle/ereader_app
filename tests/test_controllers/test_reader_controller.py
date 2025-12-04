@@ -763,3 +763,228 @@ class TestReaderControllerCaching:
             # Navigate forward (should hit cache)
             controller.next_chapter()
             assert mock_book.get_chapter_content.call_count == 2  # No new load
+
+
+class TestReaderControllerProgressTracking:
+    """Test scroll position tracking and progress signal emission."""
+
+    def test_init_has_scroll_percentage_state(self):
+        """Test that controller initializes with scroll percentage state."""
+        controller = ReaderController()
+
+        assert hasattr(controller, '_current_scroll_percentage')
+        assert controller._current_scroll_percentage == 0.0
+
+    def test_init_has_reading_progress_signal(self):
+        """Test that controller defines reading_progress_changed signal."""
+        controller = ReaderController()
+
+        assert hasattr(controller, 'reading_progress_changed')
+
+    def test_on_scroll_changed_updates_percentage(self):
+        """Test that scroll change updates internal state."""
+        controller = ReaderController()
+
+        # Set up a mock book
+        mock_book = MagicMock()
+        mock_book.get_chapter_count.return_value = 10
+        controller._book = mock_book
+        controller._current_chapter_index = 2
+
+        # Simulate scroll change
+        controller.on_scroll_changed(45.5)
+
+        # Verify state updated
+        assert controller._current_scroll_percentage == 45.5
+
+    def test_on_scroll_changed_emits_progress_signal(self):
+        """Test that scroll change emits formatted progress string."""
+        controller = ReaderController()
+
+        # Setup mock book
+        mock_book = MagicMock()
+        mock_book.get_chapter_count.return_value = 10
+        controller._book = mock_book
+        controller._current_chapter_index = 2  # Chapter 3 (1-based)
+
+        # Setup signal spy
+        progress_spy = Mock()
+        controller.reading_progress_changed.connect(progress_spy)
+
+        # Simulate scroll change
+        controller.on_scroll_changed(45.5)
+
+        # Verify signal emitted with correct format
+        progress_spy.assert_called_once()
+        emitted_progress = progress_spy.call_args[0][0]
+        assert emitted_progress == "Chapter 3 of 10 • 46% through chapter"  # Rounded to 46
+
+    def test_emit_progress_update_formats_correctly(self):
+        """Test progress string formatting."""
+        controller = ReaderController()
+
+        # Setup mock book
+        mock_book = MagicMock()
+        mock_book.get_chapter_count.return_value = 5
+        controller._book = mock_book
+        controller._current_chapter_index = 0
+        controller._current_scroll_percentage = 0.0
+
+        # Setup signal spy
+        progress_spy = Mock()
+        controller.reading_progress_changed.connect(progress_spy)
+
+        # Emit progress
+        controller._emit_progress_update()
+
+        # Verify format
+        progress_spy.assert_called_once_with("Chapter 1 of 5 • 0% through chapter")
+
+    def test_emit_progress_update_with_various_percentages(self):
+        """Test progress formatting with different scroll percentages."""
+        controller = ReaderController()
+
+        mock_book = MagicMock()
+        mock_book.get_chapter_count.return_value = 15
+        controller._book = mock_book
+        controller._current_chapter_index = 5  # Chapter 6
+
+        progress_spy = Mock()
+        controller.reading_progress_changed.connect(progress_spy)
+
+        # Test various percentages
+        test_cases = [
+            (0.0, "Chapter 6 of 15 • 0% through chapter"),
+            (25.7, "Chapter 6 of 15 • 26% through chapter"),
+            (50.0, "Chapter 6 of 15 • 50% through chapter"),
+            (75.3, "Chapter 6 of 15 • 75% through chapter"),
+            (100.0, "Chapter 6 of 15 • 100% through chapter"),
+        ]
+
+        for percentage, expected_message in test_cases:
+            progress_spy.reset_mock()
+            controller._current_scroll_percentage = percentage
+            controller._emit_progress_update()
+            progress_spy.assert_called_once_with(expected_message)
+
+    def test_emit_progress_update_no_book_loaded(self):
+        """Test that emit_progress_update does nothing when no book is loaded."""
+        controller = ReaderController()
+
+        # No book loaded
+        assert controller._book is None
+
+        # Setup signal spy
+        progress_spy = Mock()
+        controller.reading_progress_changed.connect(progress_spy)
+
+        # Try to emit progress
+        controller._emit_progress_update()
+
+        # Verify signal was not emitted
+        progress_spy.assert_not_called()
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_load_chapter_resets_scroll_percentage(self, mock_resolve_images):
+        """Test that loading a chapter resets scroll percentage to 0."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.return_value = "text/chapter0.html"
+        mock_book.get_chapter_content.return_value = "<p>Content</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Set scroll percentage to simulate being in middle of chapter
+        controller._current_scroll_percentage = 50.0
+
+        # Load new chapter
+        controller._load_chapter(1)
+
+        # Verify scroll percentage reset to 0
+        assert controller._current_scroll_percentage == 0.0
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_load_chapter_emits_progress_update(self, mock_resolve_images):
+        """Test that loading a chapter emits progress update."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.return_value = "text/chapter0.html"
+        mock_book.get_chapter_content.return_value = "<p>Content</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+
+        # Setup signal spy
+        progress_spy = Mock()
+        controller.reading_progress_changed.connect(progress_spy)
+
+        # Load chapter 0 (Chapter 1 for display)
+        controller._load_chapter(0)
+
+        # Verify progress signal emitted with 0% scroll
+        progress_spy.assert_called_once_with("Chapter 1 of 5 • 0% through chapter")
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_next_chapter_emits_progress_with_zero_scroll(self, mock_resolve_images):
+        """Test that navigating to next chapter shows 0% scroll in progress."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+        controller._current_chapter_index = 0
+
+        # Setup signal spy
+        progress_spy = Mock()
+        controller.reading_progress_changed.connect(progress_spy)
+
+        # Simulate being scrolled in middle of chapter
+        controller._current_scroll_percentage = 75.0
+
+        # Navigate to next chapter
+        controller.next_chapter()
+
+        # Verify progress shows 0% for new chapter
+        emitted_progress = progress_spy.call_args[0][0]
+        assert "Chapter 2 of 5 • 0% through chapter" == emitted_progress
+
+    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    def test_previous_chapter_emits_progress_with_zero_scroll(self, mock_resolve_images):
+        """Test that navigating to previous chapter shows 0% scroll in progress."""
+        mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
+
+        mock_book = MagicMock()
+        mock_book.filepath = "/path/to/book.epub"
+        mock_book.get_chapter_count.return_value = 5
+        mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
+        mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
+
+        controller = ReaderController()
+        controller._book = mock_book
+        controller._current_chapter_index = 2
+
+        # Setup signal spy
+        progress_spy = Mock()
+        controller.reading_progress_changed.connect(progress_spy)
+
+        # Simulate being scrolled
+        controller._current_scroll_percentage = 80.0
+
+        # Navigate to previous chapter
+        controller.previous_chapter()
+
+        # Verify progress shows 0% for new chapter
+        emitted_progress = progress_spy.call_args[0][0]
+        assert "Chapter 2 of 5 • 0% through chapter" == emitted_progress
