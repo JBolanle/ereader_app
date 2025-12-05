@@ -13,7 +13,7 @@ from ereader.exceptions import CorruptedEPUBError
 from ereader.utils.html_resources import resolve_images_in_html
 
 if TYPE_CHECKING:
-    from ereader.models.book import EPUBBook
+    from ereader.models.epub import EPUBBook
     from ereader.utils.cache_manager import CacheManager
 
 logger = logging.getLogger(__name__)
