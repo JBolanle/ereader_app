@@ -333,15 +333,27 @@ Custom Python profiling script using:
 5. ✅ **Format preservation**: JPEG→JPEG, PNG→PNG maintained
 
 **Observations:**
-- Peak memory (253MB) slightly exceeds 200MB target but is a massive improvement over baseline (559MB)
-- The 200MB target may need revisiting for image-heavy books
+- Peak memory (252-264MB) exceeds 200MB target
+- **Root cause**: Virtual pagination architecture loads entire chapters into QTextBrowser
+- For Mamba Mentality: 20 chapters × ~13MB avg = 260MB (architectural limit)
+- Image downscaling working perfectly (86-96% reduction per image)
 - Most images were 1200-2551px wide, all successfully downscaled to ≤1920px
 - Some images saw up to 96.9% file size reduction (e.g., 2.7MB → 83KB)
 
-**Next Steps (Phase 2):**
-- Consider lazy loading to reduce initial memory footprint further
-- Explore on-demand image loading as user scrolls
-- May achieve <200MB target with lazy loading + downscaling combined
+**Architectural Limitation:**
+The current virtual pagination system must load entire chapter HTML into QTextBrowser's document model. This means:
+- All text content is in memory
+- All images (even downscaled) are base64-embedded in HTML
+- Chapter with 50+ images = 10-15MB in memory even after downscaling
+- LRU cache helps with re-navigation but doesn't reduce per-chapter memory
+
+**Next Steps (Issue #31 - True Page-Based Pagination):**
+Phase 1 has achieved its goals. The 200MB target will require architectural changes:
+- **Issue #31**: True page-based pagination (load only visible page content)
+- Calculate pages based on content height and viewport
+- Load only current page's text and images
+- Expected impact: 260MB → <100MB for image-heavy books
+- This is a major architectural change requiring separate planning
 
 ### Technical Details
 
@@ -365,11 +377,14 @@ Custom Python profiling script using:
 
 ### Conclusion
 
-Phase 1 image downscaling is a **resounding success**, delivering:
-- 55% memory reduction (exceeding 30-50% target)
-- No performance degradation  
-- High visual quality maintained
-- Production-ready implementation with comprehensive tests
+Phase 1 image downscaling is **complete and successful**, delivering:
+- ✅ 55% memory reduction (exceeding 30-50% target)
+- ✅ 86-96% file size reduction per image
+- ✅ No performance degradation (<100ms targets maintained)
+- ✅ High visual quality maintained (LANCZOS resampling)
+- ✅ Production-ready implementation with comprehensive tests (311/311 tests passing, 93% coverage)
+
+**Status**: Phase 1 goals achieved. The remaining memory usage (252-264MB for Mamba Mentality) is limited by the virtual pagination architecture, not by image processing. This will be addressed in Issue #31 (True Page-Based Pagination), which is a separate architectural enhancement.
 
 The feature is ready for production use and provides significant value to users reading image-heavy books.
 
