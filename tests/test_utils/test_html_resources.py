@@ -1,10 +1,13 @@
 """Tests for HTML resource resolution utilities."""
 
 import zipfile
+from io import BytesIO
 from pathlib import Path
 
+from PIL import Image
+
 from ereader.models.epub import EPUBBook
-from ereader.utils.html_resources import resolve_images_in_html
+from ereader.utils.html_resources import downscale_image, resolve_images_in_html
 
 
 class TestResolveImagesInHTML:
@@ -394,6 +397,50 @@ class TestResolveImagesInHTML:
         # Image is still resolved to data URL
         assert 'data:image/jpeg;base64,' in resolved_html
 
+    def test_svg_images_not_downscaled(self, tmp_path: Path) -> None:
+        """Test that SVG images are not downscaled (they're vector-based)."""
+        epub_file = tmp_path / "test.epub"
+
+        container_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+        opf_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Test Book</dc:title>
+</metadata>
+<manifest>
+<item id="ch1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+<item id="img1" href="diagram.svg" media-type="image/svg+xml"/>
+</manifest>
+<spine toc="ncx">
+<itemref idref="ch1"/>
+</spine>
+</package>"""
+
+        # Minimal SVG image
+        svg_data = b'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="40"/></svg>'
+
+        with zipfile.ZipFile(epub_file, "w") as zf:
+            zf.writestr("mimetype", "application/epub+zip")
+            zf.writestr("META-INF/container.xml", container_xml)
+            zf.writestr("OEBPS/content.opf", opf_xml)
+            zf.writestr("OEBPS/chapter1.xhtml", "<html></html>")
+            zf.writestr("OEBPS/diagram.svg", svg_data)
+
+        book = EPUBBook(epub_file)
+
+        html = '<img src="diagram.svg" alt="Diagram" />'
+        resolved_html = resolve_images_in_html(html, book)
+
+        # SVG should be embedded but not downscaled (vector graphics scale perfectly)
+        assert "data:image/svg+xml;base64," in resolved_html
+        assert "diagram.svg" not in resolved_html
+
     def test_html_without_images_unchanged(self, tmp_path: Path) -> None:
         """Test that HTML without images passes through unchanged."""
         epub_file = tmp_path / "test.epub"
@@ -439,3 +486,195 @@ class TestResolveImagesInHTML:
 
         # HTML should be unchanged
         assert resolved_html == html
+
+
+class TestDownscaleImage:
+    """Test downscale_image function."""
+
+    def _create_test_image(self, width: int, height: int, format: str = 'JPEG') -> bytes:
+        """Helper to create a test image of specified dimensions.
+
+        Args:
+            width: Image width in pixels
+            height: Image height in pixels
+            format: Image format (JPEG, PNG, etc.)
+
+        Returns:
+            Image bytes
+        """
+        img = Image.new('RGB', (width, height), color='red')
+        output = BytesIO()
+        img.save(output, format=format)
+        return output.getvalue()
+
+    def test_image_within_limits_unchanged(self) -> None:
+        """Test that images within size limits are not downscaled."""
+        # Create a 1000x800 image (within 1920x1080 limits)
+        original = self._create_test_image(1000, 800)
+
+        result = downscale_image(original, max_width=1920, max_height=1080)
+
+        # Should be identical (no downscaling)
+        assert result == original
+
+    def test_image_exceeds_width_only(self) -> None:
+        """Test downscaling when image exceeds only width."""
+        # Create a 3000x1000 image (width exceeds, height ok)
+        original = self._create_test_image(3000, 1000)
+
+        result = downscale_image(original, max_width=1920, max_height=1080)
+
+        # Should be downscaled
+        assert len(result) < len(original)
+
+        # Verify new dimensions
+        img = Image.open(BytesIO(result))
+        assert img.width == 1920
+        assert img.height == 640  # Maintains aspect ratio: 1000 * (1920/3000)
+
+    def test_image_exceeds_height_only(self) -> None:
+        """Test downscaling when image exceeds only height."""
+        # Create a 1000x2000 image (height exceeds, width ok)
+        original = self._create_test_image(1000, 2000)
+
+        result = downscale_image(original, max_width=1920, max_height=1080)
+
+        # Should be downscaled
+        assert len(result) < len(original)
+
+        # Verify new dimensions
+        img = Image.open(BytesIO(result))
+        assert img.width == 540  # Maintains aspect ratio: 1000 * (1080/2000)
+        assert img.height == 1080
+
+    def test_image_exceeds_both_dimensions(self) -> None:
+        """Test downscaling when image exceeds both width and height."""
+        # Create a 4000x3000 image (both dimensions exceed)
+        original = self._create_test_image(4000, 3000)
+
+        result = downscale_image(original, max_width=1920, max_height=1080)
+
+        # Should be downscaled significantly
+        assert len(result) < len(original)
+
+        # Verify new dimensions (constrained by height in this case)
+        img = Image.open(BytesIO(result))
+        assert img.width == 1440  # 4000 * (1080/3000)
+        assert img.height == 1080
+
+    def test_aspect_ratio_preserved(self) -> None:
+        """Test that aspect ratio is maintained during downscaling."""
+        # Create images with various aspect ratios
+        test_cases = [
+            (4000, 2000),  # 2:1 landscape
+            (2000, 4000),  # 1:2 portrait
+            (3000, 3000),  # 1:1 square
+            (4800, 3200),  # 3:2 landscape
+        ]
+
+        for width, height in test_cases:
+            original = self._create_test_image(width, height)
+            original_ratio = width / height
+
+            result = downscale_image(original, max_width=1920, max_height=1080)
+
+            # Verify aspect ratio preserved
+            img = Image.open(BytesIO(result))
+            result_ratio = img.width / img.height
+            # Allow small floating point error
+            assert abs(result_ratio - original_ratio) < 0.01
+
+    def test_various_image_formats(self) -> None:
+        """Test downscaling works with different image formats."""
+        formats_to_test = [
+            ('JPEG', 2400, 1800),
+            ('PNG', 2400, 1800),
+            ('BMP', 2400, 1800),
+        ]
+
+        for format_name, width, height in formats_to_test:
+            original = self._create_test_image(width, height, format=format_name)
+
+            result = downscale_image(original, max_width=1920, max_height=1080)
+
+            # Should be downscaled
+            img = Image.open(BytesIO(result))
+            assert img.width <= 1920
+            assert img.height <= 1080
+
+    def test_custom_max_dimensions(self) -> None:
+        """Test downscaling with custom maximum dimensions."""
+        original = self._create_test_image(2000, 1500)
+
+        # Use smaller max dimensions
+        result = downscale_image(original, max_width=800, max_height=600)
+
+        img = Image.open(BytesIO(result))
+        assert img.width == 800
+        assert img.height == 600
+
+    def test_very_large_image(self) -> None:
+        """Test downscaling extremely large images (like high-res photos)."""
+        # Create an 8000x6000 image (simulating high-res camera photo)
+        original = self._create_test_image(8000, 6000)
+
+        result = downscale_image(original, max_width=1920, max_height=1080)
+
+        # Should be significantly smaller
+        assert len(result) < len(original) * 0.25  # At least 75% reduction
+
+        img = Image.open(BytesIO(result))
+        assert img.width == 1440
+        assert img.height == 1080
+
+    def test_corrupted_image_returns_original(self) -> None:
+        """Test that corrupted image data returns original bytes."""
+        corrupted_data = b"this is not a valid image"
+
+        result = downscale_image(corrupted_data)
+
+        # Should return original when processing fails
+        assert result == corrupted_data
+
+    def test_empty_image_data(self) -> None:
+        """Test handling of empty image data."""
+        empty_data = b""
+
+        result = downscale_image(empty_data)
+
+        # Should return original (graceful failure)
+        assert result == empty_data
+
+    def test_very_small_image(self) -> None:
+        """Test that very small images are not upscaled."""
+        # Create a tiny 100x100 image
+        small = self._create_test_image(100, 100)
+
+        result = downscale_image(small, max_width=1920, max_height=1080)
+
+        # Should be unchanged (no upscaling)
+        assert result == small
+
+    def test_edge_case_exact_max_dimensions(self) -> None:
+        """Test image exactly at max dimensions."""
+        # Create image exactly at max size
+        original = self._create_test_image(1920, 1080)
+
+        result = downscale_image(original, max_width=1920, max_height=1080)
+
+        # Should be unchanged
+        assert result == original
+
+    def test_format_preservation(self) -> None:
+        """Test that original image format is preserved."""
+        # Test JPEG preservation
+        jpeg_img = self._create_test_image(2400, 1800, format='JPEG')
+        jpeg_result = downscale_image(jpeg_img)
+        jpeg_out = Image.open(BytesIO(jpeg_result))
+        assert jpeg_out.format == 'JPEG'
+
+        # Test PNG preservation
+        png_img = self._create_test_image(2400, 1800, format='PNG')
+        png_result = downscale_image(png_img)
+        png_out = Image.open(BytesIO(png_result))
+        assert png_out.format == 'PNG'

@@ -7,7 +7,10 @@ referenced in EPUB HTML content.
 import base64
 import logging
 import re
+from io import BytesIO
 from typing import TYPE_CHECKING
+
+from PIL import Image
 
 from ereader.exceptions import CorruptedEPUBError
 
@@ -33,6 +36,82 @@ MIME_TYPES = {
 # width/height: auto maintains aspect ratio
 # object-fit: contain scales image to fit within bounds
 RESPONSIVE_IMAGE_STYLE = 'max-width: 100%; max-height: 90vh; width: auto; height: auto; object-fit: contain;'
+
+
+def downscale_image(image_data: bytes, max_width: int = 1920, max_height: int = 1080) -> bytes:
+    """Downscale image if it exceeds maximum dimensions.
+
+    Reduces memory footprint of large images by downscaling before base64 encoding
+    while maintaining aspect ratio and visual quality.
+
+    Args:
+        image_data: Raw image bytes
+        max_width: Maximum width in pixels (default: 1920)
+        max_height: Maximum height in pixels (default: 1080)
+
+    Returns:
+        Downscaled image bytes (or original if within limits or on error)
+
+    Example:
+        >>> original = load_image_bytes("large_photo.jpg")  # 4000x3000
+        >>> downscaled = downscale_image(original, max_width=1920, max_height=1080)
+        >>> # Result: 1440x1080 (maintains aspect ratio)
+    """
+    try:
+        # Open image with Pillow
+        img = Image.open(BytesIO(image_data))
+
+        # Get original format (preserve it if possible)
+        original_format = img.format
+
+        # Skip if already small enough
+        if img.width <= max_width and img.height <= max_height:
+            logger.debug(
+                "Image within limits (%dx%d <= %dx%d), skipping downscale",
+                img.width,
+                img.height,
+                max_width,
+                max_height
+            )
+            return image_data
+
+        # Calculate new size maintaining aspect ratio
+        ratio = min(max_width / img.width, max_height / img.height)
+        new_size = (int(img.width * ratio), int(img.height * ratio))
+
+        logger.info(
+            "Downscaling image from %dx%d to %dx%d (%.1f%% reduction)",
+            img.width,
+            img.height,
+            new_size[0],
+            new_size[1],
+            (1 - ratio) * 100
+        )
+
+        # Downscale using high-quality resampling
+        img_resized = img.resize(new_size, Image.Resampling.LANCZOS)
+
+        # Save to bytes
+        output = BytesIO()
+        # Preserve original format, default to JPEG if unknown
+        save_format = original_format if original_format else 'JPEG'
+        img_resized.save(output, format=save_format)
+        result = output.getvalue()
+
+        logger.info(
+            "Image downscaled: %d bytes -> %d bytes (%.1f%% reduction)",
+            len(image_data),
+            len(result),
+            (1 - len(result) / len(image_data)) * 100
+        )
+
+        return result
+
+    except Exception as e:
+        # If downscaling fails for any reason, return original
+        # This handles corrupted images, unsupported formats, etc.
+        logger.warning("Failed to downscale image: %s. Using original.", str(e))
+        return image_data
 
 
 def resolve_images_in_html(
@@ -90,6 +169,11 @@ def resolve_images_in_html(
 
             # Determine MIME type from extension
             mime_type = _get_mime_type(src_value)
+
+            # Downscale image if it's not SVG (vector-based)
+            # SVG images scale perfectly and don't need downscaling
+            if mime_type != "image/svg+xml":
+                image_data = downscale_image(image_data)
 
             # Encode as base64
             base64_data = base64.b64encode(image_data).decode('ascii')
