@@ -108,7 +108,10 @@ def downscale_image(image_data: bytes, max_width: int = 1920, max_height: int = 
         return result
 
     except Exception as e:
-        # If downscaling fails for any reason, return original
+        # Broad exception catch is intentional here:
+        # Pillow can raise many exception types (PIL.UnidentifiedImageError,
+        # OSError, ValueError, etc.) and we want graceful fallback for all.
+        # Better to show original image than crash the app.
         # This handles corrupted images, unsupported formats, etc.
         logger.warning("Failed to downscale image: %s. Using original.", str(e))
         return image_data
