@@ -207,8 +207,8 @@ class TestAsyncChapterLoaderErrorHandling:
 
         # Verify error title and message
         title, message = blocker.args
-        assert title == "Chapter Load Error"
-        assert "Failed to load chapter 1" in message
+        assert title == "Error"  # RuntimeError is unexpected, gets "Error" title
+        assert "Unexpected error loading chapter 1" in message
         assert "Failed to read EPUB" in message
 
     def test_image_resolution_error(self, mock_book, cache_manager, qtbot):
@@ -226,7 +226,7 @@ class TestAsyncChapterLoaderErrorHandling:
 
             # Verify error was emitted
             title, message = blocker.args
-            assert title == "Chapter Load Error"
+            assert title == "Error"  # ValueError is unexpected, gets "Error" title
             assert "Invalid image data" in message
 
     def test_invalid_chapter_index(self, mock_book, cache_manager, qtbot):
@@ -243,8 +243,8 @@ class TestAsyncChapterLoaderErrorHandling:
 
         # Verify error was emitted
         title, message = blocker.args
-        assert title == "Chapter Load Error"
-        assert "Chapter index out of range" in message
+        assert title == "Chapter Not Found"  # IndexError gets specific title
+        assert "Chapter 1000 does not exist" in message
 
 
 class TestAsyncChapterLoaderSignals:

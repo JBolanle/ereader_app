@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
+from ereader.exceptions import CorruptedEPUBError
 from ereader.utils.html_resources import resolve_images_in_html
 
 if TYPE_CHECKING:
@@ -155,11 +156,23 @@ class AsyncChapterLoader(QThread):
             logger.debug("Async loader: chapter %d ready, emitting signal", self._chapter_index)
             self.content_ready.emit(content)
 
-        except Exception as e:
-            # Catch all exceptions and emit error signal
+        except IndexError:
+            # Chapter index out of range
+            error_msg = f"Chapter {self._chapter_index + 1} does not exist"
+            logger.error("Async loader error: %s", error_msg)
+            self.error_occurred.emit("Chapter Not Found", error_msg)
+
+        except CorruptedEPUBError as e:
+            # EPUB corruption error
             error_msg = f"Failed to load chapter {self._chapter_index + 1}: {e}"
-            logger.exception("Async loader error: %s", error_msg)
+            logger.error("Async loader error: %s", error_msg)
             self.error_occurred.emit("Chapter Load Error", error_msg)
+
+        except Exception as e:
+            # Unexpected errors
+            error_msg = f"Unexpected error loading chapter {self._chapter_index + 1}: {e}"
+            logger.exception("Async loader error: %s", error_msg)
+            self.error_occurred.emit("Error", error_msg)
 
     def cancel(self) -> None:
         """Request cancellation of the loading operation.
