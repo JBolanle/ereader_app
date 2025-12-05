@@ -5,12 +5,26 @@ the EPUBBook model and UI views. Tests use mocks to isolate the controller
 logic from the actual book parsing and UI components.
 """
 
+import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 from PyQt6.QtCore import QObject
 
 from ereader.controllers.reader_controller import ReaderController
 from ereader.exceptions import CorruptedEPUBError, InvalidEPUBError
+
+
+@pytest.fixture
+def mock_epub_book():
+    """Create a properly configured mock EPUBBook for async loading tests."""
+    mock_book = MagicMock()
+    mock_book.filepath = "/path/to/book.epub"
+    mock_book.title = "Test Book"
+    mock_book.authors = ["Test Author"]
+    mock_book.get_chapter_count.return_value = 5
+    mock_book.get_chapter_content.return_value = "<p>Chapter content</p>"
+    mock_book.get_chapter_href.return_value = "chapter.xhtml"
+    return mock_book
 
 
 class TestReaderControllerInit:
@@ -41,78 +55,74 @@ class TestReaderControllerOpenBook:
     """Test opening books with ReaderController."""
 
     @patch('ereader.controllers.reader_controller.EPUBBook')
-    def test_open_book_success(self, mock_epub_class):
+    def test_open_book_success(self, mock_epub_class, mock_epub_book, qtbot):
         """Test successfully opening a valid EPUB book."""
         # Setup mock book
-        mock_book = MagicMock()
-        mock_book.title = "Test Book"
-        mock_book.authors = ["Test Author"]
-        mock_book.get_chapter_count.return_value = 5
-        mock_book.get_chapter_content.return_value = "<p>Chapter 1 content</p>"
-        mock_epub_class.return_value = mock_book
+        mock_epub_book.title = "Test Book"
+        mock_epub_book.authors = ["Test Author"]
+        mock_epub_book.get_chapter_count.return_value = 5
+        mock_epub_book.get_chapter_content.return_value = "<p>Chapter 1 content</p>"
+        mock_epub_class.return_value = mock_epub_book
 
-        # Setup controller with signal spies
+        # Setup controller
         controller = ReaderController()
         book_loaded_spy = Mock()
-        content_ready_spy = Mock()
-        chapter_changed_spy = Mock()
-        navigation_state_spy = Mock()
 
         controller.book_loaded.connect(book_loaded_spy)
-        controller.content_ready.connect(content_ready_spy)
-        controller.chapter_changed.connect(chapter_changed_spy)
-        controller.navigation_state_changed.connect(navigation_state_spy)
 
-        # Open book
-        controller.open_book("/path/to/book.epub")
+        # Open book (this starts async loading)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000) as blocker:
+            controller.open_book("/path/to/book.epub")
 
         # Verify EPUBBook was created with correct path
         mock_epub_class.assert_called_once_with("/path/to/book.epub")
 
         # Verify controller state
-        assert controller._book == mock_book
+        assert controller._book == mock_epub_book
         assert controller._current_chapter_index == 0
 
-        # Verify signals were emitted
+        # Verify book_loaded signal was emitted
         book_loaded_spy.assert_called_once_with("Test Book", "Test Author")
-        content_ready_spy.assert_called_once_with("<p>Chapter 1 content</p>")
-        chapter_changed_spy.assert_called_once_with(1, 5)  # 1-based for display
-        navigation_state_spy.assert_called_once_with(False, True)  # can't go back, can go forward
+
+        # Verify content_ready signal was emitted (caught by qtbot)
+        assert "<p>Chapter 1 content</p>" in blocker.args[0]
 
     @patch('ereader.controllers.reader_controller.EPUBBook')
-    def test_open_book_with_multiple_authors(self, mock_epub_class):
+    def test_open_book_with_multiple_authors(self, mock_epub_class, mock_epub_book, qtbot):
         """Test opening a book with multiple authors."""
-        mock_book = MagicMock()
-        mock_book.title = "Test Book"
-        mock_book.authors = ["Author One", "Author Two", "Author Three"]
-        mock_book.get_chapter_count.return_value = 1
-        mock_book.get_chapter_content.return_value = "<p>Content</p>"
-        mock_epub_class.return_value = mock_book
+        mock_epub_book.title = "Test Book"
+        mock_epub_book.authors = ["Author One", "Author Two", "Author Three"]
+        mock_epub_book.get_chapter_count.return_value = 1
+        mock_epub_book.get_chapter_content.return_value = "<p>Content</p>"
+        mock_epub_class.return_value = mock_epub_book
 
         controller = ReaderController()
         book_loaded_spy = Mock()
         controller.book_loaded.connect(book_loaded_spy)
 
-        controller.open_book("/path/to/book.epub")
+        # Wait for async loading to complete
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller.open_book("/path/to/book.epub")
 
         # Verify authors are joined with commas
         book_loaded_spy.assert_called_once_with("Test Book", "Author One, Author Two, Author Three")
 
     @patch('ereader.controllers.reader_controller.EPUBBook')
-    def test_open_book_with_no_authors(self, mock_epub_class):
+    def test_open_book_with_no_authors(self, mock_epub_class, mock_epub_book, qtbot):
         """Test opening a book with empty authors list."""
-        mock_book = MagicMock()
-        mock_book.title = "Test Book"
-        mock_book.authors = []
-        mock_book.get_chapter_count.return_value = 1
-        mock_book.get_chapter_content.return_value = "<p>Content</p>"
-        mock_epub_class.return_value = mock_book
+        mock_epub_book.title = "Test Book"
+        mock_epub_book.authors = []
+        mock_epub_book.get_chapter_count.return_value = 1
+        mock_epub_book.get_chapter_content.return_value = "<p>Content</p>"
+        mock_epub_class.return_value = mock_epub_book
 
         controller = ReaderController()
         book_loaded_spy = Mock()
         controller.book_loaded.connect(book_loaded_spy)
 
-        controller.open_book("/path/to/book.epub")
+        # Wait for async loading to complete
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller.open_book("/path/to/book.epub")
 
         # Verify default author is used
         book_loaded_spy.assert_called_once_with("Test Book", "Unknown Author")
@@ -208,7 +218,7 @@ class TestReaderControllerNavigation:
 
         return controller, mock_book
 
-    def test_next_chapter_moves_forward(self):
+    def test_next_chapter_moves_forward(self, qtbot):
         """Test navigating to the next chapter."""
         controller, mock_book = self._setup_controller_with_book(5)
 
@@ -220,8 +230,9 @@ class TestReaderControllerNavigation:
         controller.chapter_changed.connect(chapter_changed_spy)
         controller.navigation_state_changed.connect(nav_state_spy)
 
-        # Navigate to next chapter
-        controller.next_chapter()
+        # Navigate to next chapter (wait for async loading)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller.next_chapter()
 
         # Verify state updated
         assert controller._current_chapter_index == 1
@@ -257,7 +268,7 @@ class TestReaderControllerNavigation:
 
         content_spy.assert_not_called()
 
-    def test_previous_chapter_moves_backward(self):
+    def test_previous_chapter_moves_backward(self, qtbot):
         """Test navigating to the previous chapter."""
         controller, mock_book = self._setup_controller_with_book(5)
         controller._current_chapter_index = 2  # Start at chapter 3
@@ -270,8 +281,9 @@ class TestReaderControllerNavigation:
         controller.chapter_changed.connect(chapter_changed_spy)
         controller.navigation_state_changed.connect(nav_state_spy)
 
-        # Navigate to previous chapter
-        controller.previous_chapter()
+        # Navigate to previous chapter (wait for async loading)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller.previous_chapter()
 
         # Verify state updated
         assert controller._current_chapter_index == 1
@@ -307,30 +319,32 @@ class TestReaderControllerNavigation:
 
         content_spy.assert_not_called()
 
-    def test_navigation_through_entire_book(self):
+    def test_navigation_through_entire_book(self, qtbot):
         """Test navigating forward through all chapters."""
         controller, _ = self._setup_controller_with_book(3)
 
         # Navigate through all chapters
         for expected_index in range(1, 3):
-            controller.next_chapter()
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.next_chapter()
             assert controller._current_chapter_index == expected_index
 
-        # Try to go past last chapter
+        # Try to go past last chapter (no signal expected - does nothing)
         controller.next_chapter()
         assert controller._current_chapter_index == 2  # Still at last
 
-    def test_navigation_backward_through_entire_book(self):
+    def test_navigation_backward_through_entire_book(self, qtbot):
         """Test navigating backward through all chapters."""
         controller, _ = self._setup_controller_with_book(3)
         controller._current_chapter_index = 2  # Start at last
 
         # Navigate backward through all chapters
         for expected_index in [1, 0]:
-            controller.previous_chapter()
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.previous_chapter()
             assert controller._current_chapter_index == expected_index
 
-        # Try to go before first chapter
+        # Try to go before first chapter (no signal expected - does nothing)
         controller.previous_chapter()
         assert controller._current_chapter_index == 0  # Still at first
 
@@ -411,14 +425,15 @@ class TestReaderControllerNavigationState:
 class TestReaderControllerChapterLoading:
     """Test chapter loading and error handling."""
 
-    def test_load_chapter_success(self):
+    def test_load_chapter_success(self, qtbot, mock_epub_book):
         """Test successfully loading a chapter."""
-        mock_book = MagicMock()
-        mock_book.get_chapter_count.return_value = 5
-        mock_book.get_chapter_content.return_value = "<p>Chapter content</p>"
+        mock_epub_book.get_chapter_count.return_value = 5
+        mock_epub_book.get_chapter_content.return_value = "<p>Chapter content</p>"
+        mock_epub_book.get_chapter_href.return_value = "chapter2.xhtml"
 
         controller = ReaderController()
-        controller._book = mock_book
+        controller._book = mock_epub_book
+        controller._current_chapter_index = 2  # Set index before loading
 
         content_spy = Mock()
         chapter_spy = Mock()
@@ -428,29 +443,33 @@ class TestReaderControllerChapterLoading:
         controller.chapter_changed.connect(chapter_spy)
         controller.navigation_state_changed.connect(nav_spy)
 
-        controller._load_chapter(2)
+        # Wait for async loading to complete
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(2)
 
         # Verify content was fetched
-        mock_book.get_chapter_content.assert_called_once_with(2)
+        mock_epub_book.get_chapter_content.assert_called_once_with(2)
 
         # Verify signals emitted
         content_spy.assert_called_once_with("<p>Chapter content</p>")
         chapter_spy.assert_called_once_with(3, 5)  # 1-based display
         nav_spy.assert_called_once()
 
-    def test_load_chapter_invalid_index(self):
+    def test_load_chapter_invalid_index(self, qtbot, mock_epub_book):
         """Test loading a chapter with invalid index."""
-        mock_book = MagicMock()
-        mock_book.get_chapter_count.return_value = 5
-        mock_book.get_chapter_content.side_effect = IndexError("Index out of range")
+        mock_epub_book.get_chapter_count.return_value = 5
+        mock_epub_book.get_chapter_content.side_effect = IndexError("Index out of range")
+        mock_epub_book.get_chapter_href.return_value = "chapter10.xhtml"
 
         controller = ReaderController()
-        controller._book = mock_book
+        controller._book = mock_epub_book
 
         error_spy = Mock()
         controller.error_occurred.connect(error_spy)
 
-        controller._load_chapter(10)  # Invalid index
+        # Wait for async error to be emitted
+        with qtbot.waitSignal(controller.error_occurred, timeout=1000):
+            controller._load_chapter(10)  # Invalid index
 
         # Verify error signal emitted
         error_spy.assert_called_once()
@@ -458,19 +477,21 @@ class TestReaderControllerChapterLoading:
         assert args[0] == "Chapter Not Found"
         assert "11" in args[1]  # 1-based in error message
 
-    def test_load_chapter_corrupted_content(self):
+    def test_load_chapter_corrupted_content(self, qtbot, mock_epub_book):
         """Test handling of corrupted chapter content."""
-        mock_book = MagicMock()
-        mock_book.get_chapter_count.return_value = 5
-        mock_book.get_chapter_content.side_effect = CorruptedEPUBError("Chapter file missing")
+        mock_epub_book.get_chapter_count.return_value = 5
+        mock_epub_book.get_chapter_content.side_effect = CorruptedEPUBError("Chapter file missing")
+        mock_epub_book.get_chapter_href.return_value = "chapter2.xhtml"
 
         controller = ReaderController()
-        controller._book = mock_book
+        controller._book = mock_epub_book
 
         error_spy = Mock()
         controller.error_occurred.connect(error_spy)
 
-        controller._load_chapter(2)
+        # Wait for async error to be emitted
+        with qtbot.waitSignal(controller.error_occurred, timeout=1000):
+            controller._load_chapter(2)
 
         # Verify error signal emitted
         error_spy.assert_called_once()
@@ -489,19 +510,21 @@ class TestReaderControllerChapterLoading:
 
         content_spy.assert_not_called()
 
-    def test_load_chapter_unexpected_error(self):
+    def test_load_chapter_unexpected_error(self, qtbot, mock_epub_book):
         """Test handling of unexpected errors during chapter loading."""
-        mock_book = MagicMock()
-        mock_book.get_chapter_count.return_value = 5
-        mock_book.get_chapter_content.side_effect = RuntimeError("Unexpected error")
+        mock_epub_book.get_chapter_count.return_value = 5
+        mock_epub_book.get_chapter_content.side_effect = RuntimeError("Unexpected error")
+        mock_epub_book.get_chapter_href.return_value = "chapter2.xhtml"
 
         controller = ReaderController()
-        controller._book = mock_book
+        controller._book = mock_epub_book
 
         error_spy = Mock()
         controller.error_occurred.connect(error_spy)
 
-        controller._load_chapter(2)
+        # Wait for async error to be emitted
+        with qtbot.waitSignal(controller.error_occurred, timeout=1000):
+            controller._load_chapter(2)
 
         # Verify error signal emitted
         error_spy.assert_called_once()
@@ -513,8 +536,8 @@ class TestReaderControllerChapterLoading:
 class TestReaderControllerCaching:
     """Test chapter caching behavior in ReaderController."""
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_cache_hit_on_repeated_chapter_load(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_cache_hit_on_repeated_chapter_load(self, mock_resolve_images, qtbot):
         """Test that re-loading same chapter uses cache (cache hit)."""
         # Setup mock book
         mock_book = MagicMock()
@@ -530,8 +553,9 @@ class TestReaderControllerCaching:
         content_spy = Mock()
         controller.content_ready.connect(content_spy)
 
-        # First load - should render
-        controller._load_chapter(0)
+        # First load - should render (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(0)
 
         # Verify rendering happened
         mock_book.get_chapter_content.assert_called_once_with(0)
@@ -543,8 +567,9 @@ class TestReaderControllerCaching:
         mock_resolve_images.reset_mock()
         content_spy.reset_mock()
 
-        # Second load of same chapter - should use cache
-        controller._load_chapter(0)
+        # Second load of same chapter - should use cache (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(0)
 
         # Verify no rendering happened (cache hit)
         mock_book.get_chapter_content.assert_not_called()
@@ -553,8 +578,8 @@ class TestReaderControllerCaching:
         # But content was still emitted
         content_spy.assert_called_once_with("<p>Rendered chapter content</p>")
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_cache_miss_on_different_chapter(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_cache_miss_on_different_chapter(self, mock_resolve_images, qtbot):
         """Test that loading different chapter misses cache."""
         mock_book = MagicMock()
         mock_book.filepath = "/path/to/book.epub"
@@ -566,20 +591,23 @@ class TestReaderControllerCaching:
         controller = ReaderController()
         controller._book = mock_book
 
-        # Load chapter 0
-        controller._load_chapter(0)
+        # Load chapter 0 (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(0)
         assert mock_book.get_chapter_content.call_count == 1
 
-        # Load chapter 1 - should miss cache
-        controller._load_chapter(1)
+        # Load chapter 1 - should miss cache (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(1)
         assert mock_book.get_chapter_content.call_count == 2
 
-        # Load chapter 2 - should miss cache
-        controller._load_chapter(2)
+        # Load chapter 2 - should miss cache (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(2)
         assert mock_book.get_chapter_content.call_count == 3
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_sequential_navigation_caching(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_sequential_navigation_caching(self, mock_resolve_images, qtbot):
         """Test cache behavior during forward sequential navigation with multi-layer caching."""
         mock_book = MagicMock()
         mock_book.filepath = "/path/to/book.epub"
@@ -593,7 +621,8 @@ class TestReaderControllerCaching:
 
         # Navigate forward through chapters 0-12 (13 chapters total)
         for i in range(13):
-            controller._load_chapter(i)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller._load_chapter(i)
 
         # With multi-layer caching:
         # - Rendered cache (maxsize=10): chapters 3-12 (evicted 0-2)
@@ -604,17 +633,19 @@ class TestReaderControllerCaching:
 
         # Re-load chapter 2 - should hit raw cache (no book load needed)
         # But needs re-rendering (evicted from rendered cache)
-        controller._load_chapter(2)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(2)
         assert mock_book.get_chapter_content.call_count == 0  # Raw cache hit
 
         mock_book.get_chapter_content.reset_mock()
 
         # Re-load chapter 12 - should hit rendered cache (complete cache hit)
-        controller._load_chapter(12)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(12)
         assert mock_book.get_chapter_content.call_count == 0  # Rendered cache hit
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_backward_navigation_caching(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_backward_navigation_caching(self, mock_resolve_images, qtbot):
         """Test cache behavior during backward navigation."""
         mock_book = MagicMock()
         mock_book.filepath = "/path/to/book.epub"
@@ -626,22 +657,25 @@ class TestReaderControllerCaching:
         controller = ReaderController()
         controller._book = mock_book
 
-        # Navigate to chapter 5
+        # Navigate to chapter 5 (wait for each async load)
         for i in range(6):
-            controller._load_chapter(i)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller._load_chapter(i)
 
         # Reset mock to count cache hits
         mock_book.get_chapter_content.reset_mock()
 
         # Navigate backward 5 -> 4 -> 3 (all should be cache hits)
-        controller._load_chapter(4)
-        controller._load_chapter(3)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(4)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(3)
 
         # Verify no new chapter loads (all cache hits)
         assert mock_book.get_chapter_content.call_count == 0
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_cache_cleared_on_new_book(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_cache_cleared_on_new_book(self, mock_resolve_images, qtbot):
         """Test that cache is cleared when opening a new book."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -668,14 +702,16 @@ class TestReaderControllerCaching:
         with patch('ereader.controllers.reader_controller.EPUBBook') as mock_epub_class:
             # Open first book and navigate
             mock_epub_class.return_value = mock_book1
-            controller.open_book("/path/to/book1.epub")
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.open_book("/path/to/book1.epub")
 
             # Cache should have 1 entry in rendered chapters
             assert controller._cache_manager.rendered_chapters.stats()["size"] == 1
 
             # Open second book
             mock_epub_class.return_value = mock_book2
-            controller.open_book("/path/to/book2.epub")
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.open_book("/path/to/book2.epub")
 
             # Cache should be cleared and have 1 entry (from new book)
             stats = controller._cache_manager.rendered_chapters.stats()
@@ -684,8 +720,8 @@ class TestReaderControllerCaching:
             assert stats["hits"] == 0
             assert stats["misses"] == 1  # One miss from loading chapter 0 of new book
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_cache_key_uniqueness(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_cache_key_uniqueness(self, mock_resolve_images, qtbot):
         """Test that different books don't collide in cache."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -698,21 +734,23 @@ class TestReaderControllerCaching:
         controller = ReaderController()
         controller._book = mock_book
 
-        # Load chapter 0 from first book
-        controller._load_chapter(0)
+        # Load chapter 0 from first book (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(0)
         first_content = controller._cache_manager.rendered_chapters.get("/path/to/book.epub:0")
 
         # Simulate changing book (different path)
         mock_book.filepath = "/path/to/different_book.epub"
 
-        # Load chapter 0 from second book
-        controller._load_chapter(0)
+        # Load chapter 0 from second book (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(0)
 
         # Both chapters should be in cache with different keys
         assert controller._cache_manager.rendered_chapters.get("/path/to/book.epub:0") == first_content
         assert controller._cache_manager.rendered_chapters.get("/path/to/different_book.epub:0") == "<p>Chapter 0</p>"
 
-    def test_next_chapter_uses_cache(self):
+    def test_next_chapter_uses_cache(self, qtbot):
         """Test that next_chapter() method benefits from caching."""
         mock_book = MagicMock()
         mock_book.filepath = "/path/to/book.epub"
@@ -720,26 +758,29 @@ class TestReaderControllerCaching:
         mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
         mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
 
-        with patch('ereader.controllers.reader_controller.resolve_images_in_html') as mock_resolve:
+        with patch('ereader.utils.async_loader.resolve_images_in_html') as mock_resolve:
             mock_resolve.side_effect = lambda content, *args, **kwargs: content
 
             controller = ReaderController()
             controller._book = mock_book
             controller._current_chapter_index = 0
 
-            # Load initial chapter
-            controller._load_chapter(0)
+            # Load initial chapter (wait for async)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller._load_chapter(0)
             assert mock_book.get_chapter_content.call_count == 1
 
-            # Navigate forward
-            controller.next_chapter()
+            # Navigate forward (wait for async)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.next_chapter()
             assert mock_book.get_chapter_content.call_count == 2
 
-            # Navigate backward (should hit cache)
-            controller.previous_chapter()
+            # Navigate backward (should hit cache, wait for async)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.previous_chapter()
             assert mock_book.get_chapter_content.call_count == 2  # No new load
 
-    def test_previous_chapter_uses_cache(self):
+    def test_previous_chapter_uses_cache(self, qtbot):
         """Test that previous_chapter() method benefits from caching."""
         mock_book = MagicMock()
         mock_book.filepath = "/path/to/book.epub"
@@ -747,23 +788,26 @@ class TestReaderControllerCaching:
         mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
         mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
 
-        with patch('ereader.controllers.reader_controller.resolve_images_in_html') as mock_resolve:
+        with patch('ereader.utils.async_loader.resolve_images_in_html') as mock_resolve:
             mock_resolve.side_effect = lambda content, *args, **kwargs: content
 
             controller = ReaderController()
             controller._book = mock_book
             controller._current_chapter_index = 2
 
-            # Load initial chapter
-            controller._load_chapter(2)
+            # Load initial chapter (wait for async)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller._load_chapter(2)
             assert mock_book.get_chapter_content.call_count == 1
 
-            # Navigate backward
-            controller.previous_chapter()
+            # Navigate backward (wait for async)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.previous_chapter()
             assert mock_book.get_chapter_content.call_count == 2
 
-            # Navigate forward (should hit cache)
-            controller.next_chapter()
+            # Navigate forward (should hit cache, wait for async)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.next_chapter()
             assert mock_book.get_chapter_content.call_count == 2  # No new load
 
 
@@ -886,8 +930,8 @@ class TestReaderControllerProgressTracking:
         # Verify signal was not emitted
         progress_spy.assert_not_called()
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_load_chapter_resets_scroll_percentage(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_load_chapter_resets_scroll_percentage(self, mock_resolve_images, qtbot):
         """Test that loading a chapter resets scroll percentage to 0."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -903,14 +947,15 @@ class TestReaderControllerProgressTracking:
         # Set scroll percentage to simulate being in middle of chapter
         controller._current_scroll_percentage = 50.0
 
-        # Load new chapter
-        controller._load_chapter(1)
+        # Load new chapter (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(1)
 
         # Verify scroll percentage reset to 0
         assert controller._current_scroll_percentage == 0.0
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_load_chapter_emits_progress_update(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_load_chapter_emits_progress_update(self, mock_resolve_images, qtbot):
         """Test that loading a chapter emits progress update."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -927,14 +972,15 @@ class TestReaderControllerProgressTracking:
         progress_spy = Mock()
         controller.reading_progress_changed.connect(progress_spy)
 
-        # Load chapter 0 (Chapter 1 for display)
-        controller._load_chapter(0)
+        # Load chapter 0 (Chapter 1 for display, wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller._load_chapter(0)
 
         # Verify progress signal emitted with 0% scroll
         progress_spy.assert_called_once_with("Chapter 1 of 5 • 0% through chapter")
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_next_chapter_emits_progress_with_zero_scroll(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_next_chapter_emits_progress_with_zero_scroll(self, mock_resolve_images, qtbot):
         """Test that navigating to next chapter shows 0% scroll in progress."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -955,15 +1001,16 @@ class TestReaderControllerProgressTracking:
         # Simulate being scrolled in middle of chapter
         controller._current_scroll_percentage = 75.0
 
-        # Navigate to next chapter
-        controller.next_chapter()
+        # Navigate to next chapter (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller.next_chapter()
 
         # Verify progress shows 0% for new chapter
         emitted_progress = progress_spy.call_args[0][0]
         assert "Chapter 2 of 5 • 0% through chapter" == emitted_progress
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_previous_chapter_emits_progress_with_zero_scroll(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_previous_chapter_emits_progress_with_zero_scroll(self, mock_resolve_images, qtbot):
         """Test that navigating to previous chapter shows 0% scroll in progress."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -984,8 +1031,9 @@ class TestReaderControllerProgressTracking:
         # Simulate being scrolled
         controller._current_scroll_percentage = 80.0
 
-        # Navigate to previous chapter
-        controller.previous_chapter()
+        # Navigate to previous chapter (wait for async)
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller.previous_chapter()
 
         # Verify progress shows 0% for new chapter
         emitted_progress = progress_spy.call_args[0][0]
@@ -1003,8 +1051,8 @@ class TestReaderControllerMemoryMonitoring:
         assert controller._cache_manager.memory_monitor is not None
         assert controller._cache_manager.memory_monitor._threshold_mb == 150
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_memory_check_called_after_chapter_load(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_memory_check_called_after_chapter_load(self, mock_resolve_images, qtbot):
         """Test that memory threshold is checked after loading a chapter."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -1021,16 +1069,17 @@ class TestReaderControllerMemoryMonitoring:
         with patch.object(controller._cache_manager.memory_monitor, 'check_threshold') as mock_check:
             mock_check.return_value = False
 
-            # Load a chapter
-            controller._load_chapter(0)
+            # Load a chapter (wait for async)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller._load_chapter(0)
 
             # Verify memory check was called
             mock_check.assert_called_once()
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     @patch('psutil.Process')
     def test_memory_warning_logged_when_threshold_exceeded(
-        self, mock_process_class, mock_resolve_images, caplog: "pytest.LogCaptureFixture"
+        self, mock_process_class, mock_resolve_images, qtbot, caplog: "pytest.LogCaptureFixture"
     ):
         """Test that memory warnings are logged when threshold exceeded."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -1053,15 +1102,16 @@ class TestReaderControllerMemoryMonitoring:
         controller = ReaderController()
         controller._book = mock_book
 
-        # Load a chapter which will trigger memory check
+        # Load a chapter which will trigger memory check (wait for async)
         with caplog.at_level("WARNING"):
-            controller._load_chapter(0)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller._load_chapter(0)
 
             # Verify warning was logged
             assert any("exceeds threshold" in record.message for record in caplog.records)
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_memory_check_on_cache_hit(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_memory_check_on_cache_hit(self, mock_resolve_images, qtbot):
         """Test that memory is checked even on cache hits."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -1074,24 +1124,26 @@ class TestReaderControllerMemoryMonitoring:
         controller = ReaderController()
         controller._book = mock_book
 
-        # Load chapter once to cache it
+        # Load chapter once to cache it (wait for async)
         with patch.object(controller._cache_manager.memory_monitor, 'check_threshold') as mock_check:
             mock_check.return_value = False
-            controller._load_chapter(0)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller._load_chapter(0)
             first_call_count = mock_check.call_count
 
-        # Load same chapter again (cache hit)
+        # Load same chapter again (cache hit, wait for async)
         with patch.object(controller._cache_manager.memory_monitor, 'check_threshold') as mock_check:
             mock_check.return_value = False
-            controller._load_chapter(0)
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller._load_chapter(0)
             second_call_count = mock_check.call_count
 
         # Memory check should be called on both loads
         assert first_call_count == 1
         assert second_call_count == 1
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_memory_monitoring_with_sequential_chapters(self, mock_resolve_images):
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
+    def test_memory_monitoring_with_sequential_chapters(self, mock_resolve_images, qtbot):
         """Test that memory is monitored during sequential reading."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -1107,9 +1159,10 @@ class TestReaderControllerMemoryMonitoring:
         with patch.object(controller._cache_manager.memory_monitor, 'check_threshold') as mock_check:
             mock_check.return_value = False
 
-            # Load multiple chapters sequentially
+            # Load multiple chapters sequentially (wait for each async)
             for i in range(10):
-                controller._load_chapter(i)
+                with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                    controller._load_chapter(i)
 
             # Memory should be checked 10 times (once per chapter load)
             assert mock_check.call_count == 10

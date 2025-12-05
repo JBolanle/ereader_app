@@ -6,6 +6,7 @@ and memory usage during book reading.
 
 import logging
 import sys
+import threading
 import time
 from collections import OrderedDict
 from typing import Any
@@ -18,6 +19,9 @@ class ChapterCache:
 
     Uses OrderedDict to track access order. When cache is full,
     removes the least recently used item.
+
+    Thread-safe: All operations are protected by an RLock to allow
+    concurrent access from UI thread and background loader threads.
 
     Args:
         maxsize: Maximum number of chapters to cache (default: 10)
@@ -48,6 +52,7 @@ class ChapterCache:
         self._misses = 0
         self._last_eviction_time: float | None = None
         self._creation_time = time.time()
+        self._lock = threading.RLock()  # Reentrant lock for thread safety
 
         logger.info("ChapterCache initialized with maxsize=%d", maxsize)
 
@@ -56,70 +61,82 @@ class ChapterCache:
 
         If key exists, marks it as recently used by moving to end.
 
+        Thread-safe: Protected by lock for concurrent access.
+
         Args:
             key: Cache key (typically "book_id:chapter_index")
 
         Returns:
             Cached HTML string, or None if not found
         """
-        if key in self._cache:
-            self._cache.move_to_end(key)  # Mark as recently used
-            self._hits += 1
-            logger.debug(
-                "Cache HIT: %s (hits=%d, misses=%d)", key, self._hits, self._misses
-            )
-            return self._cache[key]
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)  # Mark as recently used
+                self._hits += 1
+                logger.debug(
+                    "Cache HIT: %s (hits=%d, misses=%d)", key, self._hits, self._misses
+                )
+                return self._cache[key]
 
-        self._misses += 1
-        logger.debug(
-            "Cache MISS: %s (hits=%d, misses=%d)", key, self._hits, self._misses
-        )
-        return None
+            self._misses += 1
+            logger.debug(
+                "Cache MISS: %s (hits=%d, misses=%d)", key, self._hits, self._misses
+            )
+            return None
 
     def set(self, key: str, value: str) -> None:
         """Store HTML in cache.
 
         If cache is full, evicts least recently used item.
 
+        Thread-safe: Protected by lock for concurrent access.
+
         Args:
             key: Cache key (typically "book_id:chapter_index")
             value: Rendered HTML string
         """
-        if key in self._cache:
-            # Update existing entry and mark as recently used
-            self._cache.move_to_end(key)
-            self._cache[key] = value
-            logger.debug("Cache UPDATE: %s", key)
-        else:
-            # Add new entry
-            self._cache[key] = value
-
-            # Evict oldest if necessary
-            if len(self._cache) > self._maxsize:
-                evicted_key = next(iter(self._cache))
-                self._cache.popitem(last=False)  # Remove oldest (first item)
-                self._last_eviction_time = time.time()
-                logger.info(
-                    "Cache EVICTION: %s (cache full: %d/%d)",
-                    evicted_key,
-                    len(self._cache),
-                    self._maxsize,
-                )
+        with self._lock:
+            if key in self._cache:
+                # Update existing entry and mark as recently used
+                self._cache.move_to_end(key)
+                self._cache[key] = value
+                logger.debug("Cache UPDATE: %s", key)
             else:
-                logger.debug(
-                    "Cache SET: %s (size: %d/%d)", key, len(self._cache), self._maxsize
-                )
+                # Add new entry
+                self._cache[key] = value
+
+                # Evict oldest if necessary
+                if len(self._cache) > self._maxsize:
+                    evicted_key = next(iter(self._cache))
+                    self._cache.popitem(last=False)  # Remove oldest (first item)
+                    self._last_eviction_time = time.time()
+                    logger.info(
+                        "Cache EVICTION: %s (cache full: %d/%d)",
+                        evicted_key,
+                        len(self._cache),
+                        self._maxsize,
+                    )
+                else:
+                    logger.debug(
+                        "Cache SET: %s (size: %d/%d)", key, len(self._cache), self._maxsize
+                    )
 
     def clear(self) -> None:
-        """Remove all cached entries."""
-        size = len(self._cache)
-        self._cache.clear()
-        self._hits = 0
-        self._misses = 0
-        logger.info("Cache CLEARED: removed %d entries", size)
+        """Remove all cached entries.
+
+        Thread-safe: Protected by lock for concurrent access.
+        """
+        with self._lock:
+            size = len(self._cache)
+            self._cache.clear()
+            self._hits = 0
+            self._misses = 0
+            logger.info("Cache CLEARED: removed %d entries", size)
 
     def stats(self) -> dict[str, Any]:
         """Return cache statistics.
+
+        Thread-safe: Protected by lock for concurrent access.
 
         Returns:
             Dictionary with cache metrics:
@@ -133,30 +150,35 @@ class ChapterCache:
             - time_since_last_eviction: Seconds since last eviction (or None)
             - cache_age_seconds: Seconds since cache creation
         """
-        total = self._hits + self._misses
-        hit_rate = (self._hits / total * 100) if total > 0 else 0.0
+        with self._lock:
+            total = self._hits + self._misses
+            hit_rate = (self._hits / total * 100) if total > 0 else 0.0
 
-        # Calculate estimated memory usage
-        total_size_bytes = sum(sys.getsizeof(value) for value in self._cache.values())
-        estimated_memory_mb = total_size_bytes / (1024 * 1024)
-        avg_item_size_kb = (total_size_bytes / len(self._cache) / 1024) if len(self._cache) > 0 else 0.0
+            # Calculate estimated memory usage
+            total_size_bytes = sum(sys.getsizeof(value) for value in self._cache.values())
+            estimated_memory_mb = total_size_bytes / (1024 * 1024)
+            avg_item_size_kb = (total_size_bytes / len(self._cache) / 1024) if len(self._cache) > 0 else 0.0
 
-        # Calculate time metrics
-        cache_age = time.time() - self._creation_time
-        time_since_eviction = (time.time() - self._last_eviction_time) if self._last_eviction_time is not None else None
+            # Calculate time metrics
+            cache_age = time.time() - self._creation_time
+            time_since_eviction = (time.time() - self._last_eviction_time) if self._last_eviction_time is not None else None
 
-        return {
-            "size": len(self._cache),
-            "maxsize": self._maxsize,
-            "hits": self._hits,
-            "misses": self._misses,
-            "hit_rate": hit_rate,
-            "estimated_memory_mb": estimated_memory_mb,
-            "avg_item_size_kb": avg_item_size_kb,
-            "time_since_last_eviction": time_since_eviction,
-            "cache_age_seconds": cache_age,
-        }
+            return {
+                "size": len(self._cache),
+                "maxsize": self._maxsize,
+                "hits": self._hits,
+                "misses": self._misses,
+                "hit_rate": hit_rate,
+                "estimated_memory_mb": estimated_memory_mb,
+                "avg_item_size_kb": avg_item_size_kb,
+                "time_since_last_eviction": time_since_eviction,
+                "cache_age_seconds": cache_age,
+            }
 
     def __len__(self) -> int:
-        """Return number of items in cache."""
-        return len(self._cache)
+        """Return number of items in cache.
+
+        Thread-safe: Protected by lock for concurrent access.
+        """
+        with self._lock:
+            return len(self._cache)
