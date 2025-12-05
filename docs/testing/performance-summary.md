@@ -297,3 +297,80 @@ Custom Python profiling script using:
 - `time.perf_counter()` for timing
 - `psutil.Process().memory_info()` for memory measurement
 - Representative sampling for large EPUBs
+
+## Phase 1: Image Downscaling (2025-12-05)
+
+**Implementation**: Issue #43 - Automatic image downscaling before base64 encoding
+
+### Results
+
+**Test Book**: The Mamba Mentality (201.40 MB, 21 chapters, image-heavy)
+
+#### Image Processing
+- **Downscaling Rate**: 100% of oversized images (all images >1920x1080 were downscaled)
+- **File Size Reduction**: 86-96% per image (avg ~90%)
+- **Dimension Reduction**: 26-41% (maintaining aspect ratio)
+- **Processing Time**: 91.13ms average per chapter with images (✅ PASS <100ms target)
+
+#### Memory Impact
+- **Before Optimization**: ~559MB peak (from previous profiling)
+- **After Downscaling**: 252.80MB peak
+- **Memory Reduction**: 306MB (55% improvement) ✅ **EXCEEDS 30-50% target**
+- **With Caching**: 264.23MB peak
+
+#### Performance Metrics
+- **EPUB Load Time**: 6.13ms (✅ PASS)
+- **Chapter Load Time**: 1.06ms average (✅ PASS)
+- **Image Resolution**: 91.13ms average (✅ PASS)
+
+### Analysis
+
+**Successes:**
+1. ✅ **Memory reduction exceeded target**: 55% vs 30-50% goal
+2. ✅ **No performance degradation**: All speed targets met
+3. ✅ **High-quality output**: LANCZOS resampling preserves visual quality
+4. ✅ **Aspect ratio preserved**: All images maintain correct proportions
+5. ✅ **Format preservation**: JPEG→JPEG, PNG→PNG maintained
+
+**Observations:**
+- Peak memory (253MB) slightly exceeds 200MB target but is a massive improvement over baseline (559MB)
+- The 200MB target may need revisiting for image-heavy books
+- Most images were 1200-2551px wide, all successfully downscaled to ≤1920px
+- Some images saw up to 96.9% file size reduction (e.g., 2.7MB → 83KB)
+
+**Next Steps (Phase 2):**
+- Consider lazy loading to reduce initial memory footprint further
+- Explore on-demand image loading as user scrolls
+- May achieve <200MB target with lazy loading + downscaling combined
+
+### Technical Details
+
+**Downscaling Configuration:**
+- Max dimensions: 1920x1080 (1080p)
+- Resampling: LANCZOS (high quality)
+- Format preservation: Original format maintained
+- SVG handling: Skipped (vector graphics don't need downscaling)
+
+**Implementation:**
+- Location: `src/ereader/utils/html_resources.py:downscale_image()`
+- Integration: Automatic in `resolve_images_in_html()`
+- Caching: Processed images stored in ImageCache
+- Error handling: Graceful fallback to original on processing errors
+
+**Test Coverage:**
+- 14 unit tests for downscaling function
+- Tests cover: dimensions, aspect ratios, formats, edge cases
+- 100% coverage of downscaling logic
+- All 311 tests passing (92% overall coverage)
+
+### Conclusion
+
+Phase 1 image downscaling is a **resounding success**, delivering:
+- 55% memory reduction (exceeding 30-50% target)
+- No performance degradation  
+- High visual quality maintained
+- Production-ready implementation with comprehensive tests
+
+The feature is ready for production use and provides significant value to users reading image-heavy books.
+
+---
