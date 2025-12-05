@@ -88,39 +88,41 @@ class TestReaderControllerOpenBook:
         assert "<p>Chapter 1 content</p>" in blocker.args[0]
 
     @patch('ereader.controllers.reader_controller.EPUBBook')
-    def test_open_book_with_multiple_authors(self, mock_epub_class):
+    def test_open_book_with_multiple_authors(self, mock_epub_class, mock_epub_book, qtbot):
         """Test opening a book with multiple authors."""
-        mock_book = MagicMock()
-        mock_book.title = "Test Book"
-        mock_book.authors = ["Author One", "Author Two", "Author Three"]
-        mock_book.get_chapter_count.return_value = 1
-        mock_book.get_chapter_content.return_value = "<p>Content</p>"
-        mock_epub_class.return_value = mock_book
+        mock_epub_book.title = "Test Book"
+        mock_epub_book.authors = ["Author One", "Author Two", "Author Three"]
+        mock_epub_book.get_chapter_count.return_value = 1
+        mock_epub_book.get_chapter_content.return_value = "<p>Content</p>"
+        mock_epub_class.return_value = mock_epub_book
 
         controller = ReaderController()
         book_loaded_spy = Mock()
         controller.book_loaded.connect(book_loaded_spy)
 
-        controller.open_book("/path/to/book.epub")
+        # Wait for async loading to complete
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller.open_book("/path/to/book.epub")
 
         # Verify authors are joined with commas
         book_loaded_spy.assert_called_once_with("Test Book", "Author One, Author Two, Author Three")
 
     @patch('ereader.controllers.reader_controller.EPUBBook')
-    def test_open_book_with_no_authors(self, mock_epub_class):
+    def test_open_book_with_no_authors(self, mock_epub_class, mock_epub_book, qtbot):
         """Test opening a book with empty authors list."""
-        mock_book = MagicMock()
-        mock_book.title = "Test Book"
-        mock_book.authors = []
-        mock_book.get_chapter_count.return_value = 1
-        mock_book.get_chapter_content.return_value = "<p>Content</p>"
-        mock_epub_class.return_value = mock_book
+        mock_epub_book.title = "Test Book"
+        mock_epub_book.authors = []
+        mock_epub_book.get_chapter_count.return_value = 1
+        mock_epub_book.get_chapter_content.return_value = "<p>Content</p>"
+        mock_epub_class.return_value = mock_epub_book
 
         controller = ReaderController()
         book_loaded_spy = Mock()
         controller.book_loaded.connect(book_loaded_spy)
 
-        controller.open_book("/path/to/book.epub")
+        # Wait for async loading to complete
+        with qtbot.waitSignal(controller.content_ready, timeout=1000):
+            controller.open_book("/path/to/book.epub")
 
         # Verify default author is used
         book_loaded_spy.assert_called_once_with("Test Book", "Unknown Author")
@@ -649,7 +651,7 @@ class TestReaderControllerCaching:
         assert mock_book.get_chapter_content.call_count == 0
 
     @patch('ereader.controllers.reader_controller.resolve_images_in_html')
-    def test_cache_cleared_on_new_book(self, mock_resolve_images):
+    def test_cache_cleared_on_new_book(self, mock_resolve_images, qtbot):
         """Test that cache is cleared when opening a new book."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
 
@@ -676,14 +678,16 @@ class TestReaderControllerCaching:
         with patch('ereader.controllers.reader_controller.EPUBBook') as mock_epub_class:
             # Open first book and navigate
             mock_epub_class.return_value = mock_book1
-            controller.open_book("/path/to/book1.epub")
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.open_book("/path/to/book1.epub")
 
             # Cache should have 1 entry in rendered chapters
             assert controller._cache_manager.rendered_chapters.stats()["size"] == 1
 
             # Open second book
             mock_epub_class.return_value = mock_book2
-            controller.open_book("/path/to/book2.epub")
+            with qtbot.waitSignal(controller.content_ready, timeout=1000):
+                controller.open_book("/path/to/book2.epub")
 
             # Cache should be cleared and have 1 entry (from new book)
             stats = controller._cache_manager.rendered_chapters.stats()
