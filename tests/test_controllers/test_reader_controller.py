@@ -523,7 +523,7 @@ class TestReaderControllerChapterLoading:
 class TestReaderControllerCaching:
     """Test chapter caching behavior in ReaderController."""
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_cache_hit_on_repeated_chapter_load(self, mock_resolve_images):
         """Test that re-loading same chapter uses cache (cache hit)."""
         # Setup mock book
@@ -563,7 +563,7 @@ class TestReaderControllerCaching:
         # But content was still emitted
         content_spy.assert_called_once_with("<p>Rendered chapter content</p>")
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_cache_miss_on_different_chapter(self, mock_resolve_images):
         """Test that loading different chapter misses cache."""
         mock_book = MagicMock()
@@ -588,7 +588,7 @@ class TestReaderControllerCaching:
         controller._load_chapter(2)
         assert mock_book.get_chapter_content.call_count == 3
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_sequential_navigation_caching(self, mock_resolve_images):
         """Test cache behavior during forward sequential navigation with multi-layer caching."""
         mock_book = MagicMock()
@@ -623,7 +623,7 @@ class TestReaderControllerCaching:
         controller._load_chapter(12)
         assert mock_book.get_chapter_content.call_count == 0  # Rendered cache hit
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_backward_navigation_caching(self, mock_resolve_images):
         """Test cache behavior during backward navigation."""
         mock_book = MagicMock()
@@ -650,7 +650,7 @@ class TestReaderControllerCaching:
         # Verify no new chapter loads (all cache hits)
         assert mock_book.get_chapter_content.call_count == 0
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_cache_cleared_on_new_book(self, mock_resolve_images, qtbot):
         """Test that cache is cleared when opening a new book."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -696,7 +696,7 @@ class TestReaderControllerCaching:
             assert stats["hits"] == 0
             assert stats["misses"] == 1  # One miss from loading chapter 0 of new book
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_cache_key_uniqueness(self, mock_resolve_images):
         """Test that different books don't collide in cache."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -732,7 +732,7 @@ class TestReaderControllerCaching:
         mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
         mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
 
-        with patch('ereader.controllers.reader_controller.resolve_images_in_html') as mock_resolve:
+        with patch('ereader.utils.async_loader.resolve_images_in_html') as mock_resolve:
             mock_resolve.side_effect = lambda content, *args, **kwargs: content
 
             controller = ReaderController()
@@ -759,7 +759,7 @@ class TestReaderControllerCaching:
         mock_book.get_chapter_href.side_effect = lambda i: f"text/chapter{i}.html"
         mock_book.get_chapter_content.side_effect = lambda i: f"<p>Chapter {i}</p>"
 
-        with patch('ereader.controllers.reader_controller.resolve_images_in_html') as mock_resolve:
+        with patch('ereader.utils.async_loader.resolve_images_in_html') as mock_resolve:
             mock_resolve.side_effect = lambda content, *args, **kwargs: content
 
             controller = ReaderController()
@@ -898,7 +898,7 @@ class TestReaderControllerProgressTracking:
         # Verify signal was not emitted
         progress_spy.assert_not_called()
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_load_chapter_resets_scroll_percentage(self, mock_resolve_images):
         """Test that loading a chapter resets scroll percentage to 0."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -921,7 +921,7 @@ class TestReaderControllerProgressTracking:
         # Verify scroll percentage reset to 0
         assert controller._current_scroll_percentage == 0.0
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_load_chapter_emits_progress_update(self, mock_resolve_images):
         """Test that loading a chapter emits progress update."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -945,7 +945,7 @@ class TestReaderControllerProgressTracking:
         # Verify progress signal emitted with 0% scroll
         progress_spy.assert_called_once_with("Chapter 1 of 5 • 0% through chapter")
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_next_chapter_emits_progress_with_zero_scroll(self, mock_resolve_images):
         """Test that navigating to next chapter shows 0% scroll in progress."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -974,7 +974,7 @@ class TestReaderControllerProgressTracking:
         emitted_progress = progress_spy.call_args[0][0]
         assert "Chapter 2 of 5 • 0% through chapter" == emitted_progress
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_previous_chapter_emits_progress_with_zero_scroll(self, mock_resolve_images):
         """Test that navigating to previous chapter shows 0% scroll in progress."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -1015,7 +1015,7 @@ class TestReaderControllerMemoryMonitoring:
         assert controller._cache_manager.memory_monitor is not None
         assert controller._cache_manager.memory_monitor._threshold_mb == 150
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_memory_check_called_after_chapter_load(self, mock_resolve_images):
         """Test that memory threshold is checked after loading a chapter."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -1039,7 +1039,7 @@ class TestReaderControllerMemoryMonitoring:
             # Verify memory check was called
             mock_check.assert_called_once()
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     @patch('psutil.Process')
     def test_memory_warning_logged_when_threshold_exceeded(
         self, mock_process_class, mock_resolve_images, caplog: "pytest.LogCaptureFixture"
@@ -1072,7 +1072,7 @@ class TestReaderControllerMemoryMonitoring:
             # Verify warning was logged
             assert any("exceeds threshold" in record.message for record in caplog.records)
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_memory_check_on_cache_hit(self, mock_resolve_images):
         """Test that memory is checked even on cache hits."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content
@@ -1102,7 +1102,7 @@ class TestReaderControllerMemoryMonitoring:
         assert first_call_count == 1
         assert second_call_count == 1
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_memory_monitoring_with_sequential_chapters(self, mock_resolve_images):
         """Test that memory is monitored during sequential reading."""
         mock_resolve_images.side_effect = lambda content, *args, **kwargs: content

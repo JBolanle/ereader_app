@@ -126,7 +126,7 @@ class TestMainWindowSignalChain:
         status_text = window.statusBar().currentMessage()
         assert "Chapter 3 of 5 • 0% through chapter" in status_text
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_chapter_navigation_resets_scroll_percentage(self, mock_resolve, qtbot, main_window_with_book):
         """Test that navigating chapters resets scroll to 0% in status bar."""
         mock_resolve.side_effect = lambda content, *args, **kwargs: content
@@ -266,7 +266,7 @@ class TestMainWindowKeyboardShortcuts:
         # Verify at bottom
         assert scrollbar.value() == scrollbar.maximum()
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_right_arrow_navigates_to_next_chapter(self, mock_resolve, qtbot, main_window_with_book):
         """Test next chapter navigation (triggered by Right arrow shortcut)."""
         mock_resolve.side_effect = lambda content, *args, **kwargs: content
@@ -282,7 +282,7 @@ class TestMainWindowKeyboardShortcuts:
         # Verify navigated to next chapter
         assert window._controller._current_chapter_index == 3
 
-    @patch('ereader.controllers.reader_controller.resolve_images_in_html')
+    @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_left_arrow_navigates_to_previous_chapter(self, mock_resolve, qtbot, main_window_with_book):
         """Test previous chapter navigation (triggered by Left arrow shortcut)."""
         mock_resolve.side_effect = lambda content, *args, **kwargs: content
