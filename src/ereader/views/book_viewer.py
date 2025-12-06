@@ -238,3 +238,41 @@ class BookViewer(QWidget):
         percentage = self.get_scroll_percentage()
         logger.debug("Scroll changed, emitting signal: %.1f%%", percentage)
         self.scroll_position_changed.emit(percentage)
+
+    # Pagination support methods (Phase 2A)
+
+    def get_content_height(self) -> int:
+        """Get total height of rendered content.
+
+        Returns:
+            Total height of the document in pixels.
+        """
+        return int(self._renderer.document().size().height())
+
+    def get_viewport_height(self) -> int:
+        """Get height of visible viewport.
+
+        Returns:
+            Height of the viewport in pixels.
+        """
+        return self._renderer.viewport().height()
+
+    def set_scroll_position(self, position: int) -> None:
+        """Set scroll position to specific pixel value.
+
+        The scrollbar will automatically clamp the value to valid range.
+
+        Args:
+            position: Scroll position in pixels.
+        """
+        logger.debug("Setting scroll position to %dpx", position)
+        scrollbar = self._renderer.verticalScrollBar()
+        scrollbar.setValue(position)
+
+    def get_scroll_position(self) -> int:
+        """Get current scroll position in pixels.
+
+        Returns:
+            Current scroll position in pixels.
+        """
+        return self._renderer.verticalScrollBar().value()

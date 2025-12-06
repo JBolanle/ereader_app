@@ -135,14 +135,20 @@ class MainWindow(QMainWindow):
         """Connect controller signals to view slots."""
         logger.debug("Setting up controller signal connections")
 
+        # Set book viewer reference in controller (needed for page navigation)
+        self._controller._book_viewer = self._book_viewer
+
         # Connect controller to main window
         self._controller.book_loaded.connect(self._on_book_loaded)
         self._controller.error_occurred.connect(self._on_error)
         self._controller.chapter_changed.connect(self._on_chapter_changed)
         self._controller.reading_progress_changed.connect(self._on_progress_changed)
+        self._controller.pagination_changed.connect(self._on_pagination_changed)
+        self._controller.mode_changed.connect(self._on_mode_changed)  # Phase 2C
 
         # Connect controller to book viewer
         self._controller.content_ready.connect(self._book_viewer.set_content)
+        self._controller.content_ready.connect(self._on_content_ready)
 
         # Connect book viewer scroll events to controller
         self._book_viewer.scroll_position_changed.connect(self._controller.on_scroll_changed)
@@ -153,6 +159,7 @@ class MainWindow(QMainWindow):
         # Connect navigation bar to controller
         self._navigation_bar.next_chapter_requested.connect(self._controller.next_chapter)
         self._navigation_bar.previous_chapter_requested.connect(self._controller.previous_chapter)
+        self._navigation_bar.mode_toggle_requested.connect(self._controller.toggle_navigation_mode)  # Phase 2C
 
         logger.debug("Controller connections established")
 
@@ -196,6 +203,9 @@ class MainWindow(QMainWindow):
         if status_bar is not None:
             status_bar.showMessage(f"Opened: {title} by {author}")
 
+        # Enable mode toggle button (Phase 2C)
+        self._navigation_bar.enable_mode_toggle()
+
     def _on_chapter_changed(self, current: int, total: int) -> None:
         """Handle chapter_changed signal from controller.
 
@@ -237,18 +247,64 @@ class MainWindow(QMainWindow):
         if status_bar is not None:
             status_bar.showMessage(progress)
 
+    def _on_pagination_changed(self, current_page: int, total_pages: int) -> None:
+        """Handle pagination_changed signal from controller (Phase 2A).
+
+        For now, just logs the pagination info. Progress display is handled
+        by reading_progress_changed signal which formats based on current mode.
+
+        Args:
+            current_page: Current page number (1-indexed).
+            total_pages: Total number of pages in current chapter.
+        """
+        logger.debug("Pagination changed: page %d of %d", current_page, total_pages)
+
+    def _on_mode_changed(self, mode) -> None:
+        """Handle mode_changed signal from controller (Phase 2C).
+
+        Updates navigation bar button text based on new mode.
+
+        Args:
+            mode: New NavigationMode (SCROLL or PAGE).
+        """
+        logger.debug("Mode changed: %s", mode)
+        self._navigation_bar.update_mode_button(mode)
+
+    def _on_content_ready(self, html: str) -> None:
+        """Handle content_ready signal to trigger pagination calculation (Phase 2A/2B).
+
+        When new content is loaded, we need to recalculate page breaks based
+        on the rendered content dimensions.
+
+        Args:
+            html: HTML content (not used, but required by signal signature).
+        """
+        logger.debug("Content ready, triggering pagination recalculation")
+
+        # Use a small delay to ensure content is fully rendered
+        from PyQt6.QtCore import QTimer
+
+        QTimer.singleShot(
+            50, lambda: self._controller._recalculate_pages(self._book_viewer)
+        )
+
     def _setup_keyboard_shortcuts(self) -> None:
-        """Create and configure keyboard shortcuts for navigation."""
+        """Create and configure keyboard shortcuts for navigation (Phase 2B/2C)."""
         logger.debug("Setting up keyboard shortcuts")
 
-        # Chapter navigation (Left/Right arrows)
+        # Left/Right arrows: Chapter navigation in scroll mode, page navigation in page mode
         left_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Left), self)
-        left_shortcut.activated.connect(self._controller.previous_chapter)
+        left_shortcut.activated.connect(self._handle_left_key)
 
         right_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Right), self)
-        right_shortcut.activated.connect(self._controller.next_chapter)
+        right_shortcut.activated.connect(self._handle_right_key)
 
-        # Within-chapter scrolling (Up/Down arrows - 50% viewport)
+        # Ctrl+M: Toggle navigation mode (Phase 2C)
+        mode_toggle_shortcut = QShortcut(QKeySequence("Ctrl+M"), self)
+        mode_toggle_shortcut.activated.connect(self._controller.toggle_navigation_mode)
+
+        # Within-chapter scrolling (Up/Down arrows - 50% viewport in scroll mode)
+        # TODO Phase 2C: These will also check mode
         up_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Up), self)
         up_shortcut.activated.connect(lambda: self._book_viewer.scroll_by_pages(-0.5))
 
@@ -270,6 +326,24 @@ class MainWindow(QMainWindow):
         end_shortcut.activated.connect(self._book_viewer.scroll_to_bottom)
 
         logger.debug("Keyboard shortcuts configured")
+
+    def _handle_left_key(self) -> None:
+        """Handle left arrow key based on current navigation mode (Phase 2B)."""
+        from ereader.models.reading_position import NavigationMode
+
+        if self._controller._current_mode == NavigationMode.PAGE:
+            self._controller.previous_page()
+        else:
+            self._controller.previous_chapter()
+
+    def _handle_right_key(self) -> None:
+        """Handle right arrow key based on current navigation mode (Phase 2B)."""
+        from ereader.models.reading_position import NavigationMode
+
+        if self._controller._current_mode == NavigationMode.PAGE:
+            self._controller.next_page()
+        else:
+            self._controller.next_chapter()
 
     def _handle_theme_selection(self, theme_id: str) -> None:
         """Handle theme selection from View menu.

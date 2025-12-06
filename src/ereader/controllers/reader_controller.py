@@ -11,8 +11,10 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from ereader.exceptions import EReaderError
 from ereader.models.epub import EPUBBook
+from ereader.models.reading_position import NavigationMode
 from ereader.utils.async_loader import AsyncChapterLoader
 from ereader.utils.cache_manager import CacheManager
+from ereader.utils.pagination_engine import PaginationEngine
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,8 @@ class ReaderController(QObject):
     content_ready = pyqtSignal(str)  # html content
     reading_progress_changed = pyqtSignal(str)  # formatted progress string
     error_occurred = pyqtSignal(str, str)  # error title, message
+    pagination_changed = pyqtSignal(int, int)  # current_page, total_pages (Phase 2A)
+    mode_changed = pyqtSignal(object)  # NavigationMode (Phase 2C)
 
     def __init__(self) -> None:
         """Initialize the reader controller."""
@@ -67,6 +71,15 @@ class ReaderController(QObject):
 
         # Track current async loader (for cancellation)
         self._current_loader: AsyncChapterLoader | None = None
+
+        # Pagination state (Phase 2A)
+        self._pagination_engine = PaginationEngine()
+
+        # Navigation mode state (Phase 2B)
+        self._current_mode: NavigationMode = NavigationMode.SCROLL
+
+        # Reference to book viewer (set by MainWindow when connecting signals)
+        self._book_viewer = None
 
         logger.debug("ReaderController initialized")
 
@@ -307,18 +320,222 @@ class ReaderController(QObject):
         self._emit_progress_update()
 
     def _emit_progress_update(self) -> None:
-        """Emit formatted reading progress string.
+        """Emit formatted reading progress string (Phase 2B).
 
         Formats the current chapter position and scroll percentage into
-        a user-friendly progress string and emits the reading_progress_changed signal.
+        a user-friendly progress string. Format changes based on navigation mode:
+        - Page mode: "Page X of Y in Chapter Z"
+        - Scroll mode: "Chapter X of Y • Z% through chapter"
         """
         if self._book is None:
             return
 
-        current = self._current_chapter_index + 1  # 1-based for display
-        total = self._book.get_chapter_count()
-        scroll_pct = self._current_scroll_percentage
+        current_chapter = self._current_chapter_index + 1  # 1-based for display
+        total_chapters = self._book.get_chapter_count()
 
-        progress = f"Chapter {current} of {total} • {scroll_pct:.0f}% through chapter"
-        logger.debug("Emitting progress update: %s", progress)
-        self.reading_progress_changed.emit(progress)
+        if self._current_mode == NavigationMode.PAGE and self._book_viewer is not None:
+            # Page mode: Show page numbers
+            try:
+                current_scroll = self._book_viewer.get_scroll_position()
+                current_page = self._pagination_engine.get_page_number(current_scroll) + 1  # 1-based
+                total_pages = self._pagination_engine.get_page_count()
+
+                progress = f"Page {current_page} of {total_pages} in Chapter {current_chapter}"
+                logger.debug("Emitting progress update (page mode): %s", progress)
+                self.reading_progress_changed.emit(progress)
+            except Exception as e:
+                logger.error("Error getting page information: %s", e)
+                # Fall back to scroll mode display
+                scroll_pct = self._current_scroll_percentage
+                progress = f"Chapter {current_chapter} of {total_chapters} • {scroll_pct:.0f}% through chapter"
+                self.reading_progress_changed.emit(progress)
+        else:
+            # Scroll mode: Show percentage through chapter
+            scroll_pct = self._current_scroll_percentage
+            progress = f"Chapter {current_chapter} of {total_chapters} • {scroll_pct:.0f}% through chapter"
+            logger.debug("Emitting progress update (scroll mode): %s", progress)
+            self.reading_progress_changed.emit(progress)
+
+    def _recalculate_pages(self, viewer) -> None:
+        """Recalculate page breaks for current chapter (Phase 2A).
+
+        This method gets the content and viewport dimensions from the viewer,
+        calculates page breaks using the pagination engine, and emits the
+        pagination_changed signal with the current page information.
+
+        Args:
+            viewer: BookViewer instance to get dimensions from.
+        """
+        if self._book is None:
+            logger.debug("Cannot recalculate pages: no book loaded")
+            return
+
+        try:
+            # Get dimensions from viewer
+            content_height = viewer.get_content_height()
+            viewport_height = viewer.get_viewport_height()
+
+            logger.debug(
+                "Recalculating pages: content=%dpx, viewport=%dpx",
+                content_height,
+                viewport_height,
+            )
+
+            # Calculate page breaks
+            self._pagination_engine.calculate_page_breaks(
+                content_height=content_height, viewport_height=viewport_height
+            )
+
+            # Get current scroll position to determine current page
+            scroll_position = viewer.get_scroll_position()
+            current_page = self._pagination_engine.get_page_number(scroll_position)
+            total_pages = self._pagination_engine.get_page_count()
+
+            # Emit signal with 1-indexed page numbers for display
+            logger.debug(
+                "Pagination calculated: page %d of %d", current_page + 1, total_pages
+            )
+            self.pagination_changed.emit(current_page + 1, total_pages)
+
+        except Exception as e:
+            logger.error("Error recalculating pages: %s", e)
+            # Don't propagate error - pagination is non-critical for Phase 2A
+
+    def next_page(self) -> None:
+        """Navigate to next page in page mode (Phase 2B).
+
+        If in scroll mode, this method does nothing.
+        If at the last page of the current chapter, navigates to the next chapter.
+        If at the last page of the last chapter, does nothing.
+        """
+        # Only works in page mode
+        if self._current_mode != NavigationMode.PAGE:
+            logger.debug("next_page called in scroll mode, ignoring")
+            return
+
+        if self._book is None:
+            logger.warning("next_page called with no book loaded")
+            return
+
+        if self._book_viewer is None:
+            logger.warning("next_page called with no book viewer")
+            return
+
+        try:
+            # Get current scroll position and page number
+            current_scroll = self._book_viewer.get_scroll_position()
+            current_page = self._pagination_engine.get_page_number(current_scroll)
+            max_page = self._pagination_engine.get_page_count() - 1
+
+            logger.debug(
+                "next_page: current_page=%d, max_page=%d", current_page, max_page
+            )
+
+            if current_page < max_page:
+                # Move to next page in current chapter
+                new_scroll_pos = self._pagination_engine.get_scroll_position_for_page(
+                    current_page + 1
+                )
+                logger.debug("Navigating to page %d (scroll: %d)", current_page + 1, new_scroll_pos)
+                self._book_viewer.set_scroll_position(new_scroll_pos)
+            else:
+                # At last page of chapter, try to go to next chapter
+                logger.debug("At last page, attempting to navigate to next chapter")
+                self.next_chapter()
+
+        except Exception as e:
+            logger.error("Error navigating to next page: %s", e)
+
+    def previous_page(self) -> None:
+        """Navigate to previous page in page mode (Phase 2B).
+
+        If in scroll mode, this method does nothing.
+        If at the first page of the current chapter, navigates to the previous chapter.
+        If at the first page of the first chapter, does nothing.
+        """
+        # Only works in page mode
+        if self._current_mode != NavigationMode.PAGE:
+            logger.debug("previous_page called in scroll mode, ignoring")
+            return
+
+        if self._book is None:
+            logger.warning("previous_page called with no book loaded")
+            return
+
+        if self._book_viewer is None:
+            logger.warning("previous_page called with no book viewer")
+            return
+
+        try:
+            # Get current scroll position and page number
+            current_scroll = self._book_viewer.get_scroll_position()
+            current_page = self._pagination_engine.get_page_number(current_scroll)
+
+            logger.debug("previous_page: current_page=%d", current_page)
+
+            if current_page > 0:
+                # Move to previous page in current chapter
+                new_scroll_pos = self._pagination_engine.get_scroll_position_for_page(
+                    current_page - 1
+                )
+                logger.debug("Navigating to page %d (scroll: %d)", current_page - 1, new_scroll_pos)
+                self._book_viewer.set_scroll_position(new_scroll_pos)
+            else:
+                # At first page of chapter, try to go to previous chapter
+                logger.debug("At first page, attempting to navigate to previous chapter")
+                self.previous_chapter()
+
+        except Exception as e:
+            logger.error("Error navigating to previous page: %s", e)
+
+    def toggle_navigation_mode(self) -> None:
+        """Toggle between scroll and page navigation modes (Phase 2C).
+
+        Switches the navigation mode and emits signals to update the UI.
+        When switching to page mode, calculates page breaks for the current chapter.
+        """
+        if self._book is None:
+            logger.warning("toggle_navigation_mode called with no book loaded")
+            return
+
+        if self._current_mode == NavigationMode.SCROLL:
+            self._switch_to_page_mode()
+        else:
+            self._switch_to_scroll_mode()
+
+    def _switch_to_page_mode(self) -> None:
+        """Switch to discrete page navigation mode.
+
+        Calculates page breaks for the current chapter and updates the UI
+        to show page-based progress.
+        """
+        logger.info("Switching to page mode")
+        self._current_mode = NavigationMode.PAGE
+
+        # Calculate pages for current chapter if viewer is available
+        if self._book_viewer is not None:
+            self._recalculate_pages(self._book_viewer)
+
+        # Notify UI components of mode change
+        self.mode_changed.emit(NavigationMode.PAGE)
+
+        # Update progress display to show page format
+        self._emit_progress_update()
+
+        logger.debug("Switched to page mode")
+
+    def _switch_to_scroll_mode(self) -> None:
+        """Switch to continuous scroll navigation mode.
+
+        Updates the UI to show scroll-based progress.
+        """
+        logger.info("Switching to scroll mode")
+        self._current_mode = NavigationMode.SCROLL
+
+        # Notify UI components of mode change
+        self.mode_changed.emit(NavigationMode.SCROLL)
+
+        # Update progress display to show scroll format
+        self._emit_progress_update()
+
+        logger.debug("Switched to scroll mode")

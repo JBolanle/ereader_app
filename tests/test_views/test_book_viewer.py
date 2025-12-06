@@ -432,3 +432,125 @@ class TestBookViewerTheme:
 
         stylesheet = viewer._renderer.styleSheet()
         assert "padding: 40px 60px" in stylesheet
+
+
+class TestBookViewerPaginationMethods:
+    """Test pagination-related methods for Phase 2A."""
+
+    def test_get_content_height(self, qtbot, viewer_with_scrollable_content):
+        """Test getting total content height."""
+        viewer = viewer_with_scrollable_content
+
+        content_height = viewer.get_content_height()
+
+        # Should be positive and greater than viewport
+        assert content_height > 0
+        assert content_height > viewer.get_viewport_height()
+
+    def test_get_content_height_short_content(self, qtbot, viewer):
+        """Test getting content height for short content."""
+        short_html = "<html><body><p>Short content</p></body></html>"
+        viewer.set_content(short_html)
+        viewer.show()
+        viewer.resize(800, 600)
+        qtbot.wait(10)
+
+        content_height = viewer.get_content_height()
+
+        # Should be positive but less than viewport
+        assert content_height > 0
+
+    def test_get_viewport_height(self, qtbot, viewer_with_scrollable_content):
+        """Test getting viewport height."""
+        viewer = viewer_with_scrollable_content
+
+        viewport_height = viewer.get_viewport_height()
+
+        # Should match the scrollbar's page step approximately
+        scrollbar = viewer._renderer.verticalScrollBar()
+        # Viewport height should be close to page step (allow some margin)
+        assert abs(viewport_height - scrollbar.pageStep()) < 50
+
+    def test_get_viewport_height_after_resize(self, qtbot, viewer):
+        """Test viewport height updates after resize."""
+        viewer.show()
+        viewer.resize(800, 400)
+        qtbot.wait(10)
+
+        height_small = viewer.get_viewport_height()
+
+        viewer.resize(800, 800)
+        qtbot.wait(10)
+
+        height_large = viewer.get_viewport_height()
+
+        # Larger window should have larger viewport
+        assert height_large > height_small
+
+    def test_set_scroll_position(self, qtbot, viewer_with_scrollable_content):
+        """Test setting scroll position to specific pixel value."""
+        viewer = viewer_with_scrollable_content
+        scrollbar = viewer._renderer.verticalScrollBar()
+
+        # Set to specific position
+        target_position = 500
+        viewer.set_scroll_position(target_position)
+        qtbot.wait(10)
+
+        # Verify position was set
+        assert scrollbar.value() == target_position
+
+    def test_set_scroll_position_zero(self, qtbot, viewer_with_scrollable_content):
+        """Test setting scroll position to zero (top)."""
+        viewer = viewer_with_scrollable_content
+
+        # Scroll down first
+        viewer.scroll_by_pages(2.0)
+        qtbot.wait(10)
+
+        # Set to zero
+        viewer.set_scroll_position(0)
+        qtbot.wait(10)
+
+        scrollbar = viewer._renderer.verticalScrollBar()
+        assert scrollbar.value() == scrollbar.minimum()
+
+    def test_set_scroll_position_clamping(self, qtbot, viewer_with_scrollable_content):
+        """Test that setting scroll position beyond max is clamped."""
+        viewer = viewer_with_scrollable_content
+        scrollbar = viewer._renderer.verticalScrollBar()
+
+        # Try to set beyond maximum
+        viewer.set_scroll_position(99999)
+        qtbot.wait(10)
+
+        # Should be clamped to maximum
+        assert scrollbar.value() == scrollbar.maximum()
+
+    def test_get_scroll_position(self, qtbot, viewer_with_scrollable_content):
+        """Test getting current scroll position in pixels."""
+        viewer = viewer_with_scrollable_content
+        scrollbar = viewer._renderer.verticalScrollBar()
+
+        # At top
+        viewer.scroll_to_top()
+        qtbot.wait(10)
+        assert viewer.get_scroll_position() == scrollbar.minimum()
+
+        # Scroll to specific position
+        target = 300
+        scrollbar.setValue(target)
+        qtbot.wait(10)
+        assert viewer.get_scroll_position() == target
+
+    def test_get_scroll_position_matches_set(self, qtbot, viewer_with_scrollable_content):
+        """Test that get_scroll_position returns what set_scroll_position set."""
+        viewer = viewer_with_scrollable_content
+
+        positions = [0, 100, 500, 1000]
+        for position in positions:
+            viewer.set_scroll_position(position)
+            qtbot.wait(10)
+
+            retrieved_position = viewer.get_scroll_position()
+            assert retrieved_position == position
