@@ -7,7 +7,7 @@ and orchestrates the flow of data between model and views.
 
 import logging
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
 from ereader.exceptions import EReaderError
 from ereader.models.epub import EPUBBook
@@ -18,6 +18,9 @@ from ereader.utils.pagination_engine import PaginationEngine
 from ereader.utils.settings import ReaderSettings
 
 logger = logging.getLogger(__name__)
+
+# Position restore delay - wait for content rendering to complete
+_POSITION_RESTORE_DELAY_MS = 100
 
 
 class ReaderController(QObject):
@@ -292,9 +295,8 @@ class ReaderController(QObject):
         if self._pending_position_restore is not None and self._book_viewer is not None:
             logger.debug("Restoring scroll position: %s", self._pending_position_restore)
             # Use QTimer to defer position restoration until after content is fully rendered
-            from PyQt6.QtCore import QTimer
             position = self._pending_position_restore
-            QTimer.singleShot(100, lambda: self._restore_position(position))
+            QTimer.singleShot(_POSITION_RESTORE_DELAY_MS, lambda: self._restore_position(position))
             self._pending_position_restore = None
         else:
             # Reset scroll percentage (new chapter always starts at top)
@@ -623,8 +625,14 @@ class ReaderController(QObject):
             # Update progress display
             self._emit_progress_update()
 
-        except Exception as e:
+        except (ValueError, RuntimeError, AttributeError) as e:
+            # ValueError: Invalid position data
+            # RuntimeError: Qt widget operation failed
+            # AttributeError: Widget not properly initialized
             logger.error("Error restoring position: %s", e)
+        except Exception as e:
+            # Catch any unexpected errors to prevent crashes
+            logger.error("Unexpected error restoring position: %s", e)
 
     def save_current_position(self) -> None:
         """Save the current reading position to settings (Phase 2D).
@@ -666,5 +674,11 @@ class ReaderController(QObject):
             self._settings.save_reading_position(self._current_book_path, position)
             logger.debug("Saved reading position: %s", position)
 
-        except Exception as e:
+        except (ValueError, RuntimeError, AttributeError) as e:
+            # ValueError: Invalid position data
+            # RuntimeError: Qt widget operation or QSettings failed
+            # AttributeError: Widget not properly initialized
             logger.error("Error saving position: %s", e)
+        except Exception as e:
+            # Catch any unexpected errors to prevent crashes
+            logger.error("Unexpected error saving position: %s", e)

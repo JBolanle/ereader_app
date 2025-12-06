@@ -7,7 +7,7 @@ as the container for all UI components.
 import logging
 
 from PyQt6.QtCore import QSettings, Qt
-from PyQt6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShortcut
 from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QVBoxLayout, QWidget
 
 from ereader.controllers.reader_controller import ReaderController
@@ -415,7 +415,7 @@ class MainWindow(QMainWindow):
 
         logger.debug("Theme preference saved")
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None:
         """Handle application close event (Phase 2D).
 
         Saves the current reading position before closing the application.
