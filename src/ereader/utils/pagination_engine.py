@@ -100,6 +100,11 @@ class PaginationEngine:
         Finds which page the given scroll position belongs to by comparing
         against the calculated page breaks.
 
+        Note: The maximum scroll position in a QScrollBar is
+        (content_height - viewport_height), which may be less than the last
+        page break. When the user is at the maximum scroll position, they
+        should be considered to be on the last page.
+
         Args:
             scroll_position: Current scroll position in pixels.
 
@@ -109,12 +114,22 @@ class PaginationEngine:
         if self._page_breaks is None:
             return 0
 
+        # Calculate maximum possible scroll position
+        # (QScrollBar maximum is content_height - viewport_height)
+        max_scroll = self._page_breaks.content_height - self._page_breaks.viewport_height
+
+        # If at or beyond the maximum scroll position, we're on the last page
+        # This handles the edge case where content height is not a perfect
+        # multiple of viewport height
+        if scroll_position >= max_scroll:
+            return len(self._page_breaks.page_breaks) - 2
+
         # Find the page this scroll position belongs to
         for i in range(len(self._page_breaks.page_breaks) - 1):
             if scroll_position < self._page_breaks.page_breaks[i + 1]:
                 return i
 
-        # Last page (scroll position at or beyond last break)
+        # Fallback: last page (scroll position at or beyond last break)
         return len(self._page_breaks.page_breaks) - 2
 
     def get_scroll_position_for_page(self, page_number: int) -> int:
