@@ -414,3 +414,20 @@ class MainWindow(QMainWindow):
         settings.setValue("theme", theme_id)
 
         logger.debug("Theme preference saved")
+
+    def closeEvent(self, event) -> None:
+        """Handle application close event (Phase 2D).
+
+        Saves the current reading position before closing the application.
+
+        Args:
+            event: QCloseEvent from Qt.
+        """
+        logger.debug("Application closing, saving reading position")
+
+        # Save current position if a book is loaded
+        self._controller.save_current_position()
+
+        # Accept the close event
+        event.accept()
+        logger.debug("Application closed")

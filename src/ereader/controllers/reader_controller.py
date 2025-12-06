@@ -11,10 +11,11 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from ereader.exceptions import EReaderError
 from ereader.models.epub import EPUBBook
-from ereader.models.reading_position import NavigationMode
+from ereader.models.reading_position import NavigationMode, ReadingPosition
 from ereader.utils.async_loader import AsyncChapterLoader
 from ereader.utils.cache_manager import CacheManager
 from ereader.utils.pagination_engine import PaginationEngine
+from ereader.utils.settings import ReaderSettings
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ class ReaderController(QObject):
         self._book: EPUBBook | None = None
         self._current_chapter_index: int = 0
         self._current_scroll_percentage: float = 0.0
+        self._current_book_path: str | None = None  # Track book path for settings
 
         # Multi-layer caching with shared memory budget
         self._cache_manager = CacheManager(
@@ -81,13 +83,18 @@ class ReaderController(QObject):
         # Reference to book viewer (set by MainWindow when connecting signals)
         self._book_viewer = None
 
+        # Settings for persistence (Phase 2D)
+        self._settings = ReaderSettings()
+        self._pending_position_restore: ReadingPosition | None = None
+
         logger.debug("ReaderController initialized")
 
     def open_book(self, filepath: str) -> None:
         """Open an EPUB book file.
 
-        Loads the EPUB file, extracts metadata, and displays the first chapter.
-        Emits signals to update the UI with book information and content.
+        Loads the EPUB file, extracts metadata, and displays the saved position
+        (or first chapter if no saved position). Emits signals to update the UI
+        with book information and content.
 
         Args:
             filepath: Path to the EPUB file to open.
@@ -97,14 +104,38 @@ class ReaderController(QObject):
         try:
             # Load the EPUB file
             self._book = EPUBBook(filepath)
+            self._current_book_path = filepath
             logger.debug("Book loaded successfully: %s", self._book.title)
-
-            # Reset to first chapter
-            self._current_chapter_index = 0
 
             # Clear all caches when opening a new book
             self._cache_manager.clear_all()
             logger.debug("All caches cleared for new book")
+
+            # Load saved position or start at beginning (Phase 2D)
+            saved_position = self._settings.load_reading_position(filepath)
+            if saved_position is not None:
+                logger.info("Restoring saved position: %s", saved_position)
+                # Validate chapter index is within bounds
+                max_chapter = self._book.get_chapter_count() - 1
+                if saved_position.chapter_index > max_chapter:
+                    logger.warning(
+                        "Saved chapter index %d exceeds book length (%d chapters), starting at chapter 0",
+                        saved_position.chapter_index,
+                        max_chapter + 1,
+                    )
+                    self._current_chapter_index = 0
+                    self._current_mode = saved_position.mode
+                else:
+                    self._current_chapter_index = saved_position.chapter_index
+                    self._current_mode = saved_position.mode
+                    # Store position details for restoration after chapter loads
+                    self._pending_position_restore = saved_position
+            else:
+                logger.debug("No saved position found, starting at chapter 0")
+                self._current_chapter_index = 0
+                # Use default navigation mode from settings
+                self._current_mode = self._settings.get_default_navigation_mode()
+                self._pending_position_restore = None
 
             # Get book metadata
             title = self._book.title
@@ -114,8 +145,8 @@ class ReaderController(QObject):
             logger.debug("Emitting book_loaded signal: %s by %s", title, author)
             self.book_loaded.emit(title, author)
 
-            # Load and display the first chapter
-            self._load_chapter(0)
+            # Load the appropriate chapter
+            self._load_chapter(self._current_chapter_index)
 
         except FileNotFoundError:
             error_msg = f"Could not find file: {filepath}"
@@ -135,8 +166,9 @@ class ReaderController(QObject):
     def next_chapter(self) -> None:
         """Navigate to the next chapter.
 
-        Increments the chapter index and loads the next chapter content.
-        Does nothing if already at the last chapter or no book is loaded.
+        Saves current position, increments the chapter index, and loads
+        the next chapter content. Does nothing if already at the last
+        chapter or no book is loaded.
         """
         if self._book is None:
             logger.warning("next_chapter called with no book loaded")
@@ -144,6 +176,9 @@ class ReaderController(QObject):
 
         max_index = self._book.get_chapter_count() - 1
         if self._current_chapter_index < max_index:
+            # Save position before navigating away (Phase 2D)
+            self.save_current_position()
+
             logger.debug(
                 "Navigating to next chapter: %d -> %d",
                 self._current_chapter_index,
@@ -157,14 +192,18 @@ class ReaderController(QObject):
     def previous_chapter(self) -> None:
         """Navigate to the previous chapter.
 
-        Decrements the chapter index and loads the previous chapter content.
-        Does nothing if already at the first chapter or no book is loaded.
+        Saves current position, decrements the chapter index, and loads
+        the previous chapter content. Does nothing if already at the first
+        chapter or no book is loaded.
         """
         if self._book is None:
             logger.warning("previous_chapter called with no book loaded")
             return
 
         if self._current_chapter_index > 0:
+            # Save position before navigating away (Phase 2D)
+            self.save_current_position()
+
             logger.debug(
                 "Navigating to previous chapter: %d -> %d",
                 self._current_chapter_index,
@@ -235,6 +274,8 @@ class ReaderController(QObject):
         """Handle content_ready signal from AsyncChapterLoader.
 
         This runs on the UI thread via Qt's signal/slot mechanism.
+        If there's a pending position restore (from saved settings), it will
+        be applied after the content is emitted.
 
         Args:
             html: Rendered HTML with resolved images.
@@ -247,8 +288,17 @@ class ReaderController(QObject):
         # Emit content to views (BookViewer will call setHtml)
         self.content_ready.emit(html)
 
-        # Reset scroll percentage (new chapter always starts at top)
-        self._current_scroll_percentage = 0.0
+        # Restore saved position if pending (Phase 2D)
+        if self._pending_position_restore is not None and self._book_viewer is not None:
+            logger.debug("Restoring scroll position: %s", self._pending_position_restore)
+            # Use QTimer to defer position restoration until after content is fully rendered
+            from PyQt6.QtCore import QTimer
+            position = self._pending_position_restore
+            QTimer.singleShot(100, lambda: self._restore_position(position))
+            self._pending_position_restore = None
+        else:
+            # Reset scroll percentage (new chapter always starts at top)
+            self._current_scroll_percentage = 0.0
 
         # Update chapter position info
         if self._book is not None:
@@ -539,3 +589,82 @@ class ReaderController(QObject):
         self._emit_progress_update()
 
         logger.debug("Switched to scroll mode")
+
+    def _restore_position(self, position: ReadingPosition) -> None:
+        """Restore a saved reading position (Phase 2D).
+
+        This method is called after chapter content is loaded to restore
+        the exact scroll position and navigation mode from saved settings.
+
+        Args:
+            position: ReadingPosition to restore.
+        """
+        if self._book_viewer is None:
+            logger.warning("Cannot restore position: no book viewer available")
+            return
+
+        try:
+            # Restore scroll position
+            self._book_viewer.set_scroll_position(position.scroll_offset)
+            logger.debug(
+                "Restored scroll position to %dpx (page %d in %s mode)",
+                position.scroll_offset,
+                position.page_number,
+                position.mode.value,
+            )
+
+            # If in page mode, recalculate pages and emit mode change
+            if position.mode == NavigationMode.PAGE:
+                self._recalculate_pages(self._book_viewer)
+                self.mode_changed.emit(NavigationMode.PAGE)
+            else:
+                self.mode_changed.emit(NavigationMode.SCROLL)
+
+            # Update progress display
+            self._emit_progress_update()
+
+        except Exception as e:
+            logger.error("Error restoring position: %s", e)
+
+    def save_current_position(self) -> None:
+        """Save the current reading position to settings (Phase 2D).
+
+        This method should be called when:
+        - Changing chapters
+        - Closing the application
+        - Navigation mode changes
+
+        The position is only saved if a book is currently open.
+        """
+        if self._book is None or self._current_book_path is None:
+            logger.debug("No book loaded, skipping position save")
+            return
+
+        if self._book_viewer is None:
+            logger.debug("No book viewer available, skipping position save")
+            return
+
+        try:
+            # Get current scroll position
+            scroll_offset = self._book_viewer.get_scroll_position()
+
+            # Get current page number (if in page mode)
+            if self._current_mode == NavigationMode.PAGE:
+                page_number = self._pagination_engine.get_page_number(scroll_offset)
+            else:
+                page_number = 0
+
+            # Create position object
+            position = ReadingPosition(
+                chapter_index=self._current_chapter_index,
+                page_number=page_number,
+                scroll_offset=scroll_offset,
+                mode=self._current_mode,
+            )
+
+            # Save to settings
+            self._settings.save_reading_position(self._current_book_path, position)
+            logger.debug("Saved reading position: %s", position)
+
+        except Exception as e:
+            logger.error("Error saving position: %s", e)

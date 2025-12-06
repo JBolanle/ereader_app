@@ -221,3 +221,53 @@ class TestPaginationEngine:
         # Internal state updated
         assert engine._page_breaks is breaks2
         assert engine.get_page_count() == 4
+
+    def test_performance_with_very_long_chapter(self) -> None:
+        """Test pagination performance with very long chapters (Phase 2F).
+
+        This test ensures that the pagination engine can handle chapters
+        with hundreds of pages without performance degradation. Typical
+        long chapters might have 100-500 pages.
+        """
+        import time
+
+        engine = PaginationEngine()
+
+        # Simulate a very long chapter (approximately 500 pages)
+        # Typical viewport: 800px, so 400,000px content = ~500 pages
+        content_height = 400_000
+        viewport_height = 800
+
+        # Time the page break calculation
+        start_time = time.time()
+        breaks = engine.calculate_page_breaks(
+            content_height=content_height, viewport_height=viewport_height
+        )
+        elapsed_time = time.time() - start_time
+
+        # Verify correct calculation
+        expected_pages = content_height // viewport_height
+        assert breaks.page_count == expected_pages + 1  # +1 for end marker
+
+        # Performance requirement: Should complete in < 100ms
+        assert elapsed_time < 0.1, f"Page calculation took {elapsed_time*1000:.2f}ms (expected < 100ms)"
+
+        # Verify page number lookup is fast
+        start_time = time.time()
+        for scroll_pos in [0, 100_000, 200_000, 300_000, 399_999]:
+            page_num = engine.get_page_number(scroll_pos)
+            assert 0 <= page_num < expected_pages
+        elapsed_time = time.time() - start_time
+
+        # Page lookups should be very fast (< 10ms for 5 lookups)
+        assert elapsed_time < 0.01, f"Page lookups took {elapsed_time*1000:.2f}ms (expected < 10ms)"
+
+        # Verify scroll position lookup is fast
+        start_time = time.time()
+        for page_num in [0, 100, 250, 400, 499]:
+            scroll_pos = engine.get_scroll_position_for_page(page_num)
+            assert scroll_pos == page_num * viewport_height
+        elapsed_time = time.time() - start_time
+
+        # Scroll position lookups should be very fast (< 5ms for 5 lookups)
+        assert elapsed_time < 0.005, f"Scroll position lookups took {elapsed_time*1000:.2f}ms (expected < 5ms)"
