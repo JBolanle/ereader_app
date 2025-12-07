@@ -222,6 +222,43 @@ class TestPaginationEngine:
         assert engine._page_breaks is breaks2
         assert engine.get_page_count() == 4
 
+    def test_get_page_number_at_max_scroll_non_aligned_content(self) -> None:
+        """Test get_page_number when at max scroll with non-aligned content.
+
+        This is a critical edge case: when content height is not a perfect
+        multiple of viewport height, the maximum scroll position
+        (content_height - viewport_height) is less than the last page break.
+        The user should be considered on the last page when at max scroll.
+
+        Bug: This caused users to be unable to navigate to the next chapter
+        at the end of a chapter when content wasn't perfectly aligned.
+        """
+        engine = PaginationEngine()
+        # Content that doesn't align perfectly with viewport
+        # Max scroll = 2300 - 800 = 1500px
+        # Page breaks = [0, 800, 1600, 2300]
+        # Last page starts at 1600px, but max scroll is 1500px!
+        engine.calculate_page_breaks(content_height=2300, viewport_height=800)
+
+        # When user scrolls to bottom, they're at 1500px (max scroll)
+        # This should be recognized as the last page (page 2)
+        max_scroll = 2300 - 800  # 1500
+        page_at_max_scroll = engine.get_page_number(max_scroll)
+        max_page = engine.get_page_count() - 1  # 2
+
+        # User should be on the last page
+        assert page_at_max_scroll == max_page, (
+            f"At max scroll ({max_scroll}px), should be on last page ({max_page}), "
+            f"but got page {page_at_max_scroll}"
+        )
+
+        # Verify that pressing next_page would trigger next_chapter
+        # (This is the behavior in ReaderController.next_page())
+        would_go_to_next_chapter = page_at_max_scroll >= max_page
+        assert would_go_to_next_chapter, (
+            "At max scroll position, next_page should navigate to next chapter"
+        )
+
     def test_performance_with_very_long_chapter(self) -> None:
         """Test pagination performance with very long chapters (Phase 2F).
 
