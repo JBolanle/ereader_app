@@ -109,7 +109,10 @@ class NavigationBar(QWidget):
         self._next_button.setEnabled(can_go_forward)
 
     def update_mode_button(self, mode) -> None:
-        """Update mode toggle button text based on current mode (Phase 2C).
+        """Update mode toggle button to show current mode (Phase 2C).
+
+        Button displays the CURRENT mode with an icon, and tooltip indicates
+        the mode that will be activated on click (the opposite mode).
 
         Args:
             mode: Current NavigationMode (SCROLL or PAGE).
@@ -117,11 +120,40 @@ class NavigationBar(QWidget):
         from ereader.models.reading_position import NavigationMode
 
         if mode == NavigationMode.PAGE:
-            self._mode_toggle_button.setText("Scroll Mode")
-            logger.debug("Mode button updated: Scroll Mode (currently in PAGE mode)")
-        else:
-            self._mode_toggle_button.setText("Page Mode")
-            logger.debug("Mode button updated: Page Mode (currently in SCROLL mode)")
+            self._mode_toggle_button.setText("📄 Page Mode")
+            self._mode_toggle_button.setToolTip("Switch to scroll mode (Ctrl+M)")
+            logger.debug("Mode button updated: Page Mode (current)")
+        else:  # SCROLL mode
+            self._mode_toggle_button.setText("📜 Scroll Mode")
+            self._mode_toggle_button.setToolTip("Switch to page mode (Ctrl+M)")
+            logger.debug("Mode button updated: Scroll Mode (current)")
+
+        # Update navigation button labels to match mode
+        self.update_button_labels(mode)
+
+    def update_button_labels(self, mode) -> None:
+        """Update navigation button labels based on current mode.
+
+        Changes button text and tooltips to clearly indicate whether
+        buttons will navigate by page or by chapter.
+
+        Args:
+            mode: Current NavigationMode (SCROLL or PAGE).
+        """
+        from ereader.models.reading_position import NavigationMode
+
+        if mode == NavigationMode.PAGE:
+            self._previous_button.setText("← Page")
+            self._next_button.setText("Page →")
+            self._previous_button.setToolTip("Go to previous page (Left Arrow)")
+            self._next_button.setToolTip("Go to next page (Right Arrow)")
+            logger.debug("Button labels updated for PAGE mode")
+        else:  # SCROLL mode
+            self._previous_button.setText("← Chapter")
+            self._next_button.setText("Chapter →")
+            self._previous_button.setToolTip("Go to previous chapter (Left Arrow)")
+            self._next_button.setToolTip("Go to next chapter (Right Arrow)")
+            logger.debug("Button labels updated for SCROLL mode")
 
     def enable_mode_toggle(self) -> None:
         """Enable the mode toggle button (Phase 2C).

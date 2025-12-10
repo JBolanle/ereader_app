@@ -23,6 +23,10 @@ class Theme:
         accent: Accent color for interactive elements as hex string (e.g., "#8B7355").
         border: Border color as hex string (e.g., "#E8E3DD").
         status_bg: Status bar background color as hex string (e.g., "#F5F1EB").
+        shadow_color: Shadow color as hex string (default: "#000000").
+        shadow_alpha: Shadow opacity (0-255, default: 15 for ~6% opacity).
+        shadow_blur: Shadow blur radius in pixels (default: 8).
+        shadow_offset_y: Shadow vertical offset in pixels (default: 2).
     """
 
     name: str
@@ -33,6 +37,10 @@ class Theme:
     accent: str
     border: str
     status_bg: str
+    shadow_color: str = "#000000"
+    shadow_alpha: int = 15
+    shadow_blur: int = 8
+    shadow_offset_y: int = 2
 
     def get_global_stylesheet(self) -> str:
         """Generate global stylesheet (QSS) for application-wide styling.
@@ -106,10 +114,10 @@ class Theme:
             /* Status bar */
             QStatusBar {{
                 background-color: {self.status_bg};
-                color: {self.text_secondary};
+                color: {self.text};
                 border-top: 1px solid {self.border};
-                font-size: 12px;
-                padding: 0px;
+                font-size: 13px;
+                padding: 6px 12px;
             }}
 
             QStatusBar::item {{
@@ -204,6 +212,10 @@ class Theme:
                 border-color: {self.border};
                 background-color: transparent;
             }}
+
+            QPushButton:focus {{
+                border: 2px solid {self.accent};
+            }}
         """
 
 
@@ -229,6 +241,7 @@ DARK_THEME = Theme(
     accent="#C9A882",  # Warm gold
     border="#3F3B38",  # Subtle border
     status_bg="#252220",  # Slightly lighter than background
+    shadow_alpha=25,  # Slightly stronger shadow for dark theme (~10% opacity)
 )
 
 # Registry of all available themes
