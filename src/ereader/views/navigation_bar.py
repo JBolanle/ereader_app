@@ -131,12 +131,18 @@ class NavigationBar(QWidget):
         """
         from ereader.models.reading_position import NavigationMode
 
+        # Block signals while updating UI to prevent infinite loop
+        self._mode_toggle_switch.blockSignals(True)
+
         if mode == NavigationMode.PAGE:
             self._mode_toggle_switch.setChecked(True)  # Right position
             logger.debug("Mode toggle updated: Page Mode (current)")
         else:  # SCROLL mode
             self._mode_toggle_switch.setChecked(False)  # Left position
             logger.debug("Mode toggle updated: Scroll Mode (current)")
+
+        # Unblock signals
+        self._mode_toggle_switch.blockSignals(False)
 
         # Update navigation button labels to match mode
         self.update_button_labels(mode)
