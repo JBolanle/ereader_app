@@ -6,9 +6,23 @@ as the container for all UI components.
 
 import logging
 
-from PyQt6.QtCore import QSettings, Qt
-from PyQt6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShortcut
-from PyQt6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QVBoxLayout, QWidget
+from PyQt6.QtCore import QEasingCurve, QEvent, QPropertyAnimation, QSettings, Qt, QTimer
+from PyQt6.QtGui import (
+    QAction,
+    QActionGroup,
+    QCloseEvent,
+    QKeySequence,
+    QMouseEvent,
+    QShortcut,
+)
+from PyQt6.QtWidgets import (
+    QFileDialog,
+    QGraphicsOpacityEffect,
+    QMainWindow,
+    QMessageBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ereader.controllers.reader_controller import ReaderController
 from ereader.models.theme import AVAILABLE_THEMES, DEFAULT_THEME, Theme
@@ -49,6 +63,13 @@ class MainWindow(QMainWindow):
         self._toast_queue: list[tuple[str, str]] = []  # (message, icon)
         self._toast_active: bool = False
 
+        # Auto-hide navigation bar state (Phase 2B)
+        self._auto_hide_enabled: bool = True  # Default: enabled
+        self._nav_bar_visible: bool = True
+        self._nav_bar_opacity_effect: QGraphicsOpacityEffect | None = None
+        self._nav_bar_animation: QPropertyAnimation | None = None
+        self._hide_timer: QTimer | None = None
+
         # Create controller
         self._controller = ReaderController()
 
@@ -70,6 +91,7 @@ class MainWindow(QMainWindow):
         self._setup_menu_bar()
         self._setup_status_bar()
         self._setup_keyboard_shortcuts()
+        self._setup_auto_hide_navigation()  # Phase 2B
 
         # Load and apply saved theme preference
         self._load_theme_preference()
@@ -107,6 +129,17 @@ class MainWindow(QMainWindow):
 
         # Create View menu
         view_menu = menu_bar.addMenu("&View")
+
+        # Auto-hide Navigation Bar (Phase 2B)
+        self._auto_hide_action = QAction("&Auto-Hide Navigation Bar", self)
+        self._auto_hide_action.setCheckable(True)
+        self._auto_hide_action.setChecked(True)  # Default: enabled
+        self._auto_hide_action.setShortcut("Ctrl+Shift+H")
+        self._auto_hide_action.setStatusTip("Automatically hide navigation bar when inactive")
+        self._auto_hide_action.triggered.connect(self._toggle_auto_hide)
+        view_menu.addAction(self._auto_hide_action)
+
+        view_menu.addSeparator()
 
         # Create Theme submenu
         theme_menu = view_menu.addMenu("&Theme")
@@ -489,7 +522,176 @@ class MainWindow(QMainWindow):
             logger.debug("Showing next queued toast")
             self._show_toast(message, icon)
 
-        logger.debug("Theme preference saved")
+    def _setup_auto_hide_navigation(self) -> None:
+        """Setup auto-hide navigation bar system (Phase 2B).
+
+        Creates the opacity effect, animation, and timer for auto-hiding
+        the navigation bar after inactivity.
+        """
+        logger.debug("Setting up auto-hide navigation")
+
+        # Enable mouse tracking to detect movement
+        self.setMouseTracking(True)
+
+        # Create opacity effect for navigation bar
+        self._nav_bar_opacity_effect = QGraphicsOpacityEffect(self._navigation_bar)
+        self._nav_bar_opacity_effect.setOpacity(1.0)
+        self._navigation_bar.setGraphicsEffect(self._nav_bar_opacity_effect)
+
+        # Create animation for opacity
+        self._nav_bar_animation = QPropertyAnimation(
+            self._nav_bar_opacity_effect, b"opacity", self
+        )
+        self._nav_bar_animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+
+        # Create timer for auto-hide (3 seconds)
+        self._hide_timer = QTimer(self)
+        self._hide_timer.setSingleShot(True)
+        self._hide_timer.setInterval(3000)  # 3 seconds
+        self._hide_timer.timeout.connect(self._hide_navigation_bar)
+
+        # Connect navigation bar hover events
+        self._navigation_bar.installEventFilter(self)
+
+        # Load saved preference
+        settings = QSettings("EReader", "EReader")
+        auto_hide_value = settings.value("auto_hide_enabled", True, type=bool)
+        # Ensure boolean type (handle test mocking that may return strings)
+        self._auto_hide_enabled = auto_hide_value if isinstance(auto_hide_value, bool) else True
+        self._auto_hide_action.setChecked(self._auto_hide_enabled)
+
+        # Start timer if enabled
+        if self._auto_hide_enabled:
+            self._hide_timer.start()
+
+        logger.debug("Auto-hide navigation setup complete")
+
+    def _toggle_auto_hide(self, checked: bool) -> None:
+        """Toggle auto-hide navigation bar feature on/off (Phase 2B).
+
+        Args:
+            checked: True to enable auto-hide, False to disable.
+        """
+        logger.debug("Toggling auto-hide: %s", checked)
+
+        self._auto_hide_enabled = checked
+
+        # Save preference
+        settings = QSettings("EReader", "EReader")
+        settings.setValue("auto_hide_enabled", checked)
+
+        if checked:
+            # Enable: start the hide timer
+            if self._hide_timer:
+                self._hide_timer.start()
+        else:
+            # Disable: stop timer and ensure nav bar is visible
+            if self._hide_timer:
+                self._hide_timer.stop()
+            self._show_navigation_bar()
+
+        logger.debug("Auto-hide toggled: %s", checked)
+
+    def _show_navigation_bar(self) -> None:
+        """Show the navigation bar with fade-in animation (Phase 2B).
+
+        Animates opacity from current value to 1.0 over 250ms.
+        """
+        if self._nav_bar_visible:
+            return  # Already visible
+
+        logger.debug("Showing navigation bar")
+
+        if self._nav_bar_animation and self._nav_bar_opacity_effect:
+            self._nav_bar_animation.stop()
+            self._nav_bar_animation.setDuration(250)  # 250ms fade in (faster)
+            self._nav_bar_animation.setStartValue(self._nav_bar_opacity_effect.opacity())
+            self._nav_bar_animation.setEndValue(1.0)
+            self._nav_bar_animation.start()
+
+        self._nav_bar_visible = True
+
+    def _hide_navigation_bar(self) -> None:
+        """Hide the navigation bar with fade-out animation (Phase 2B).
+
+        Animates opacity from current value to 0.0 over 500ms.
+        Only hides if auto-hide is enabled.
+        """
+        if not self._auto_hide_enabled:
+            return  # Auto-hide disabled
+
+        if not self._nav_bar_visible:
+            return  # Already hidden
+
+        logger.debug("Hiding navigation bar")
+
+        if self._nav_bar_animation and self._nav_bar_opacity_effect:
+            self._nav_bar_animation.stop()
+            self._nav_bar_animation.setDuration(500)  # 500ms fade out (slower)
+            self._nav_bar_animation.setStartValue(self._nav_bar_opacity_effect.opacity())
+            self._nav_bar_animation.setEndValue(0.0)
+            self._nav_bar_animation.start()
+
+        self._nav_bar_visible = False
+
+    def _restart_hide_timer(self) -> None:
+        """Restart the auto-hide timer (Phase 2B).
+
+        Resets the 3-second countdown. If the nav bar is hidden,
+        it will be shown first.
+        """
+        if not self._auto_hide_enabled:
+            return  # Auto-hide disabled
+
+        # Show nav bar if hidden
+        if not self._nav_bar_visible:
+            self._show_navigation_bar()
+
+        # Restart timer
+        if self._hide_timer:
+            self._hide_timer.start()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        """Handle mouse movement to show nav bar and restart timer (Phase 2B).
+
+        Args:
+            event: The mouse move event.
+        """
+        self._restart_hide_timer()
+        super().mouseMoveEvent(event)
+
+    def eventFilter(self, obj: QWidget, event: QEvent) -> bool:  # type: ignore[override]
+        """Event filter for navigation bar hover detection (Phase 2B).
+
+        Pauses auto-hide timer when hovering over navigation bar.
+
+        Args:
+            obj: The object that triggered the event.
+            event: The event.
+
+        Returns:
+            False to allow event propagation.
+        """
+        if obj == self._navigation_bar:
+            if event.type() == QEvent.Type.Enter:
+                # Mouse entered nav bar, stop timer
+                logger.debug("Mouse entered navigation bar, pausing auto-hide")
+                if self._hide_timer:
+                    self._hide_timer.stop()
+                # Ensure nav bar is visible
+                self._show_navigation_bar()
+            elif event.type() == QEvent.Type.Leave:
+                # Mouse left nav bar, restart timer
+                logger.debug("Mouse left navigation bar, restarting auto-hide timer")
+                self._restart_hide_timer()
+            elif event.type() == QEvent.Type.FocusIn:
+                # Nav bar received focus (via Tab key), show it
+                logger.debug("Navigation bar received focus, showing")
+                self._show_navigation_bar()
+                if self._hide_timer:
+                    self._hide_timer.stop()
+
+        return False  # Allow event to propagate
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Handle application close event (Phase 2D).

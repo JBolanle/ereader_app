@@ -5,12 +5,17 @@ and keyboard shortcuts for navigating between chapters.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from ereader.models.theme import DEFAULT_THEME, Theme
+from ereader.views.toggle_switch import ToggleSwitchWidget
+
+if TYPE_CHECKING:
+    from ereader.models.reading_position import NavigationMode
 
 logger = logging.getLogger(__name__)
 
@@ -46,26 +51,32 @@ class NavigationBar(QWidget):
         # Create buttons
         self._previous_button = QPushButton("Previous", self)
         self._next_button = QPushButton("Next", self)
-        self._mode_toggle_button = QPushButton("Page Mode", self)  # Phase 2C
+
+        # Create toggle switch for mode selection (replaces button)
+        self._mode_toggle_switch = ToggleSwitchWidget(
+            left_label="Scroll",
+            right_label="Page",
+            parent=self
+        )
+        self._mode_toggle_switch.setToolTip("Toggle between scroll and page modes (Ctrl+M)")
 
         # Configure buttons
         self._previous_button.setToolTip("Go to previous chapter (Left Arrow)")
         self._next_button.setToolTip("Go to next chapter (Right Arrow)")
-        self._mode_toggle_button.setToolTip("Toggle between scroll and page modes (Ctrl+M)")
 
         # Initially disable navigation buttons (no book loaded)
         self._previous_button.setEnabled(False)
         self._next_button.setEnabled(False)
-        self._mode_toggle_button.setEnabled(False)  # Disabled until book is loaded
+        self._mode_toggle_switch.setEnabled(False)  # Disabled until book is loaded
 
         # Connect button signals
         self._previous_button.clicked.connect(self._on_previous_clicked)
         self._next_button.clicked.connect(self._on_next_clicked)
-        self._mode_toggle_button.clicked.connect(self._on_mode_toggle_clicked)
+        self._mode_toggle_switch.toggled.connect(self._on_mode_toggle_changed)
 
         # Setup layout
         layout = QHBoxLayout(self)
-        layout.addWidget(self._mode_toggle_button)  # Left side: mode toggle
+        layout.addWidget(self._mode_toggle_switch)  # Left side: mode toggle switch
         layout.addStretch()  # Push navigation buttons to center
         layout.addWidget(self._previous_button)
         layout.addSpacing(12)  # Space between buttons
@@ -108,11 +119,12 @@ class NavigationBar(QWidget):
         self._previous_button.setEnabled(can_go_back)
         self._next_button.setEnabled(can_go_forward)
 
-    def update_mode_button(self, mode) -> None:
-        """Update mode toggle button to show current mode (Phase 2C).
+    def update_mode_button(self, mode: "NavigationMode") -> None:
+        """Update mode toggle switch to show current mode.
 
-        Button displays the CURRENT mode with an icon, and tooltip indicates
-        the mode that will be activated on click (the opposite mode).
+        Toggle switch position reflects the CURRENT mode:
+        - Left (unchecked): Scroll Mode
+        - Right (checked): Page Mode
 
         Args:
             mode: Current NavigationMode (SCROLL or PAGE).
@@ -120,18 +132,16 @@ class NavigationBar(QWidget):
         from ereader.models.reading_position import NavigationMode
 
         if mode == NavigationMode.PAGE:
-            self._mode_toggle_button.setText("📄 Page Mode")
-            self._mode_toggle_button.setToolTip("Switch to scroll mode (Ctrl+M)")
-            logger.debug("Mode button updated: Page Mode (current)")
+            self._mode_toggle_switch.setChecked(True)  # Right position
+            logger.debug("Mode toggle updated: Page Mode (current)")
         else:  # SCROLL mode
-            self._mode_toggle_button.setText("📜 Scroll Mode")
-            self._mode_toggle_button.setToolTip("Switch to page mode (Ctrl+M)")
-            logger.debug("Mode button updated: Scroll Mode (current)")
+            self._mode_toggle_switch.setChecked(False)  # Left position
+            logger.debug("Mode toggle updated: Scroll Mode (current)")
 
         # Update navigation button labels to match mode
         self.update_button_labels(mode)
 
-    def update_button_labels(self, mode) -> None:
+    def update_button_labels(self, mode: "NavigationMode") -> None:
         """Update navigation button labels based on current mode.
 
         Changes button text and tooltips to clearly indicate whether
@@ -156,12 +166,12 @@ class NavigationBar(QWidget):
             logger.debug("Button labels updated for SCROLL mode")
 
     def enable_mode_toggle(self) -> None:
-        """Enable the mode toggle button (Phase 2C).
+        """Enable the mode toggle switch.
 
         Called when a book is loaded to enable mode switching.
         """
-        logger.debug("Enabling mode toggle button")
-        self._mode_toggle_button.setEnabled(True)
+        logger.debug("Enabling mode toggle switch")
+        self._mode_toggle_switch.setEnabled(True)
 
     def _on_previous_clicked(self) -> None:
         """Handle Previous button click.
@@ -179,12 +189,17 @@ class NavigationBar(QWidget):
         logger.debug("Next button clicked")
         self.next_chapter_requested.emit()
 
-    def _on_mode_toggle_clicked(self) -> None:
-        """Handle mode toggle button click (Phase 2C).
+    def _on_mode_toggle_changed(self, checked: bool) -> None:
+        """Handle mode toggle switch state change.
 
-        Emits the mode_toggle_requested signal.
+        Emits the mode_toggle_requested signal. The checked state indicates
+        which mode the user is switching TO, but we just emit the toggle
+        signal and let the controller handle the actual mode change.
+
+        Args:
+            checked: True if switch moved to right (Page mode), False for left (Scroll mode).
         """
-        logger.debug("Mode toggle button clicked")
+        logger.debug("Mode toggle switch changed: %s", "Page" if checked else "Scroll")
         self.mode_toggle_requested.emit()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
