@@ -14,6 +14,7 @@ from ereader.controllers.reader_controller import ReaderController
 from ereader.models.theme import AVAILABLE_THEMES, DEFAULT_THEME, Theme
 from ereader.views.book_viewer import BookViewer
 from ereader.views.navigation_bar import NavigationBar
+from ereader.views.shortcuts_dialog import ShortcutsDialog
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,9 @@ class MainWindow(QMainWindow):
 
         # Initialize theme state
         self._current_theme: Theme = DEFAULT_THEME
+
+        # Phase 2 UI components (lazy-loaded)
+        self._shortcuts_dialog: ShortcutsDialog | None = None
 
         # Create controller
         self._controller = ReaderController()
@@ -120,6 +124,16 @@ class MainWindow(QMainWindow):
             if not hasattr(self, "_theme_actions"):
                 self._theme_actions: dict[str, QAction] = {}
             self._theme_actions[theme_id] = theme_action
+
+        # Create Help menu
+        help_menu = menu_bar.addMenu("&Help")
+
+        # Add "Keyboard Shortcuts" action
+        shortcuts_action = QAction("&Keyboard Shortcuts", self)
+        shortcuts_action.setShortcut("F1")
+        shortcuts_action.setStatusTip("Show keyboard shortcuts")
+        shortcuts_action.triggered.connect(self._show_shortcuts_dialog)
+        help_menu.addAction(shortcuts_action)
 
         logger.debug("Menu bar setup complete")
 
@@ -412,6 +426,19 @@ class MainWindow(QMainWindow):
 
         settings = QSettings("EReader", "EReader")
         settings.setValue("theme", theme_id)
+
+    def _show_shortcuts_dialog(self) -> None:
+        """Show the keyboard shortcuts help dialog.
+
+        Creates the dialog on first invocation and reuses it for
+        subsequent calls.
+        """
+        logger.debug("Showing keyboard shortcuts dialog")
+
+        if self._shortcuts_dialog is None:
+            self._shortcuts_dialog = ShortcutsDialog(self)
+
+        self._shortcuts_dialog.exec()
 
         logger.debug("Theme preference saved")
 
