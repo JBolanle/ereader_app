@@ -5,6 +5,7 @@ and keyboard shortcuts for navigating between chapters.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeyEvent
@@ -12,6 +13,9 @@ from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from ereader.models.theme import DEFAULT_THEME, Theme
 from ereader.views.toggle_switch import ToggleSwitchWidget
+
+if TYPE_CHECKING:
+    from ereader.models.reading_position import NavigationMode
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +119,7 @@ class NavigationBar(QWidget):
         self._previous_button.setEnabled(can_go_back)
         self._next_button.setEnabled(can_go_forward)
 
-    def update_mode_button(self, mode) -> None:
+    def update_mode_button(self, mode: "NavigationMode") -> None:
         """Update mode toggle switch to show current mode.
 
         Toggle switch position reflects the CURRENT mode:
@@ -137,7 +141,7 @@ class NavigationBar(QWidget):
         # Update navigation button labels to match mode
         self.update_button_labels(mode)
 
-    def update_button_labels(self, mode) -> None:
+    def update_button_labels(self, mode: "NavigationMode") -> None:
         """Update navigation button labels based on current mode.
 
         Changes button text and tooltips to clearly indicate whether

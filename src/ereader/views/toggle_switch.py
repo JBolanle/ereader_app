@@ -197,7 +197,7 @@ class ToggleSwitchWidget(QWidget):
         else:
             super().keyPressEvent(event)
 
-    def enterEvent(self, event) -> None:
+    def enterEvent(self, event: QMouseEvent | None) -> None:
         """Handle mouse enter for hover state.
 
         Args:
@@ -207,7 +207,7 @@ class ToggleSwitchWidget(QWidget):
         self.update()
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:
+    def leaveEvent(self, event: QMouseEvent | None) -> None:
         """Handle mouse leave for hover state.
 
         Args:
@@ -217,7 +217,7 @@ class ToggleSwitchWidget(QWidget):
         self.update()
         super().leaveEvent(event)
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, event: QMouseEvent | None) -> None:
         """Paint the toggle switch with custom drawing.
 
         Draws:

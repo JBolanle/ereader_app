@@ -6,7 +6,7 @@ as the container for all UI components.
 
 import logging
 
-from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, QSettings, Qt, QTimer
+from PyQt6.QtCore import QEasingCurve, QEvent, QPropertyAnimation, QSettings, Qt, QTimer
 from PyQt6.QtGui import (
     QAction,
     QActionGroup,
@@ -522,8 +522,6 @@ class MainWindow(QMainWindow):
             logger.debug("Showing next queued toast")
             self._show_toast(message, icon)
 
-        logger.debug("Theme preference saved")
-
     def _setup_auto_hide_navigation(self) -> None:
         """Setup auto-hide navigation bar system (Phase 2B).
 
@@ -662,7 +660,7 @@ class MainWindow(QMainWindow):
         self._restart_hide_timer()
         super().mouseMoveEvent(event)
 
-    def eventFilter(self, obj: QWidget, event) -> bool:  # type: ignore
+    def eventFilter(self, obj: QWidget, event: QEvent) -> bool:  # type: ignore[override]
         """Event filter for navigation bar hover detection (Phase 2B).
 
         Pauses auto-hide timer when hovering over navigation bar.
@@ -674,8 +672,6 @@ class MainWindow(QMainWindow):
         Returns:
             False to allow event propagation.
         """
-        from PyQt6.QtCore import QEvent
-
         if obj == self._navigation_bar:
             if event.type() == QEvent.Type.Enter:
                 # Mouse entered nav bar, stop timer
