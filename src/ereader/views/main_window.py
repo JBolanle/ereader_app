@@ -14,6 +14,8 @@ from ereader.controllers.reader_controller import ReaderController
 from ereader.models.theme import AVAILABLE_THEMES, DEFAULT_THEME, Theme
 from ereader.views.book_viewer import BookViewer
 from ereader.views.navigation_bar import NavigationBar
+from ereader.views.shortcuts_dialog import ShortcutsDialog
+from ereader.views.toast_widget import ToastWidget
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,14 @@ class MainWindow(QMainWindow):
 
         # Initialize theme state
         self._current_theme: Theme = DEFAULT_THEME
+
+        # Phase 2 UI components (lazy-loaded)
+        self._shortcuts_dialog: ShortcutsDialog | None = None
+
+        # Toast notification system
+        self._toast_widget: ToastWidget | None = None
+        self._toast_queue: list[tuple[str, str]] = []  # (message, icon)
+        self._toast_active: bool = False
 
         # Create controller
         self._controller = ReaderController()
@@ -120,6 +130,16 @@ class MainWindow(QMainWindow):
             if not hasattr(self, "_theme_actions"):
                 self._theme_actions: dict[str, QAction] = {}
             self._theme_actions[theme_id] = theme_action
+
+        # Create Help menu
+        help_menu = menu_bar.addMenu("&Help")
+
+        # Add "Keyboard Shortcuts" action
+        shortcuts_action = QAction("&Keyboard Shortcuts", self)
+        shortcuts_action.setShortcut("F1")
+        shortcuts_action.setStatusTip("Show keyboard shortcuts")
+        shortcuts_action.triggered.connect(self._show_shortcuts_dialog)
+        help_menu.addAction(shortcuts_action)
 
         logger.debug("Menu bar setup complete")
 
@@ -262,13 +282,22 @@ class MainWindow(QMainWindow):
     def _on_mode_changed(self, mode) -> None:
         """Handle mode_changed signal from controller (Phase 2C).
 
-        Updates navigation bar button text based on new mode.
+        Updates navigation bar button text based on new mode and shows
+        a toast notification.
 
         Args:
             mode: New NavigationMode (SCROLL or PAGE).
         """
+        from ereader.models.reading_position import NavigationMode
+
         logger.debug("Mode changed: %s", mode)
         self._navigation_bar.update_mode_button(mode)
+
+        # Show toast notification for mode change
+        if mode == NavigationMode.PAGE:
+            self._show_toast("Switched to Page Mode", "📄")
+        else:
+            self._show_toast("Switched to Scroll Mode", "📜")
 
     def _on_content_ready(self, html: str) -> None:
         """Handle content_ready signal to trigger pagination calculation (Phase 2A/2B).
@@ -412,6 +441,53 @@ class MainWindow(QMainWindow):
 
         settings = QSettings("EReader", "EReader")
         settings.setValue("theme", theme_id)
+
+    def _show_shortcuts_dialog(self) -> None:
+        """Show the keyboard shortcuts help dialog.
+
+        Creates the dialog on first invocation and reuses it for
+        subsequent calls.
+        """
+        logger.debug("Showing keyboard shortcuts dialog")
+
+        if self._shortcuts_dialog is None:
+            self._shortcuts_dialog = ShortcutsDialog(self)
+
+        self._shortcuts_dialog.exec()
+
+    def _show_toast(self, message: str, icon: str = "") -> None:
+        """Show a toast notification or queue if one is already showing.
+
+        Args:
+            message: The message text to display.
+            icon: Optional emoji icon to show before the message.
+        """
+        logger.debug("Toast requested: %s %s", icon, message)
+
+        if self._toast_active:
+            # Queue the toast if one is already showing
+            self._toast_queue.append((message, icon))
+            logger.debug("Toast queued (active toast in progress)")
+        else:
+            # Create toast widget on first use
+            if self._toast_widget is None:
+                self._toast_widget = ToastWidget(self)
+                self._toast_widget.animation_complete.connect(self._on_toast_complete)
+
+            # Show the toast
+            self._toast_active = True
+            self._toast_widget.show_message(message, icon)
+
+    def _on_toast_complete(self) -> None:
+        """Handle toast animation completion and show next queued toast if any."""
+        logger.debug("Toast complete")
+        self._toast_active = False
+
+        # Check if there are queued toasts
+        if self._toast_queue:
+            message, icon = self._toast_queue.pop(0)
+            logger.debug("Showing next queued toast")
+            self._show_toast(message, icon)
 
         logger.debug("Theme preference saved")
 
