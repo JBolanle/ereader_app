@@ -8,7 +8,7 @@ import logging
 
 from PyQt6.QtCore import QRect, QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
-from PyQt6.QtWidgets import QStyle, QStyleOptionViewItem, QStyledItemDelegate
+from PyQt6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from ereader.models.book_metadata import BookMetadata
 

@@ -35,7 +35,7 @@ class BookListModel(QAbstractListModel):
         self._books = books if books is not None else []
         logger.debug("BookListModel initialized with %d books", len(self._books))
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def rowCount(self, parent: QModelIndex | None = None) -> int:
         """Return number of rows in the model.
 
         Args:
@@ -44,6 +44,8 @@ class BookListModel(QAbstractListModel):
         Returns:
             Number of books in the model.
         """
+        if parent is None:
+            parent = QModelIndex()
         # List models should return 0 when parent is valid
         if parent.isValid():
             return 0

@@ -6,7 +6,7 @@ for the library interface, including the book grid and empty state.
 
 import logging
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
 
 from ereader.models.book_metadata import BookMetadata
