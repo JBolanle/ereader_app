@@ -166,28 +166,31 @@ See [MVP Completion Summary](docs/mvp-completion.md) for full implementation det
 
 ### Next Priority Features
 
-**High Priority:**
-1. [ ] True page-based pagination system (Issue #31)
-   - Replace virtual scrolling with calculated pages
-   - Stable page numbers
-   - Toggle between scroll and page modes
+**UPDATED PRIORITIES (2025-12-13):** Library Management System promoted to #1 priority based on UX evaluation. This transforms the app from a single-book viewer to a personal reading library.
+
+**Phase 1: Library Foundation** ⭐ TOP PRIORITY
+1. [ ] **Library Management System** (See [Library Spec](docs/specs/library-management-system.md))
+   - Phase 1: Basic library (import, grid view, persistence)
+   - Phase 2: Organization (collections, search, filters, status)
+   - Phase 3: Polish (Continue Reading, covers, list view, context menus)
+
+**Phase 2: Reading Enhancements**
 2. [ ] Bookmarks feature
-3. [ ] PDF support
+3. [ ] Font customization (promoted - reading comfort is core UX)
+4. [ ] Search within book
 
-**Important:**
-4. [ ] Annotations/highlights
-5. [ ] Library management (organize books)
+**Phase 3: Content Expansion**
+5. [ ] PDF support
+6. [ ] Annotations/highlights
 
-**Nice-to-Have:**
-6. [ ] TXT support
-7. [ ] Search within book
-8. [ ] Customizable fonts and sizing
-9. [ ] Reading statistics
+**Phase 4: Analytics & Advanced**
+7. [ ] Reading statistics
+8. [ ] True page-based pagination system (Issue #31)
+9. [ ] TXT/MOBI support
 
 **Future:**
-10. [ ] MOBI support
-11. [ ] Cloud sync
-12. [ ] Plugin architecture
+10. [ ] Cloud sync
+11. [ ] Plugin architecture
 
 ## Performance Requirements
 
