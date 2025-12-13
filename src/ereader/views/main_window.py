@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QGraphicsOpacityEffect,
     QMainWindow,
     QMessageBox,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
