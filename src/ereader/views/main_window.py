@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QGraphicsOpacityEffect,
     QMainWindow,
     QMessageBox,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -42,8 +43,13 @@ class MainWindow(QMainWindow):
     for the application.
     """
 
-    def __init__(self) -> None:
-        """Initialize the main window."""
+    def __init__(self, repository=None, library_controller=None) -> None:
+        """Initialize the main window.
+
+        Args:
+            repository: Optional LibraryRepository for library integration.
+            library_controller: Optional LibraryController for library management.
+        """
         super().__init__()
         logger.debug("Initializing MainWindow")
 
@@ -70,24 +76,50 @@ class MainWindow(QMainWindow):
         self._nav_bar_animation: QPropertyAnimation | None = None
         self._hide_timer: QTimer | None = None
 
-        # Create controller
-        self._controller = ReaderController()
+        # Library integration (Phase 1 library)
+        self._repository = repository
+        self._library_controller = library_controller
+
+        # Create controllers
+        self._controller = ReaderController(repository)
 
         # Create UI components
         self._book_viewer = BookViewer(self)
         self._navigation_bar = NavigationBar(self)
 
-        # Create central widget with layout
-        central_widget = QWidget(self)
-        layout = QVBoxLayout(central_widget)
-        layout.addWidget(self._book_viewer)
-        layout.addWidget(self._navigation_bar)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        self.setCentralWidget(central_widget)
+        # Create stacked widget for library/reader switching
+        self._stacked_widget = QStackedWidget(self)
+
+        # Page 0: Library View (if library enabled)
+        if self._library_controller is not None:
+            from ereader.views.library_view import LibraryView
+
+            self._library_view = LibraryView(self)
+            self._stacked_widget.addWidget(self._library_view)  # Index 0
+        else:
+            self._library_view = None
+
+        # Page 1 (or 0 if no library): Reader View
+        reader_widget = QWidget(self)
+        reader_layout = QVBoxLayout(reader_widget)
+        reader_layout.addWidget(self._book_viewer)
+        reader_layout.addWidget(self._navigation_bar)
+        reader_layout.setContentsMargins(0, 0, 0, 0)
+        reader_layout.setSpacing(0)
+        self._stacked_widget.addWidget(reader_widget)  # Index 1 (or 0)
+
+        # Set stacked widget as central widget
+        self.setCentralWidget(self._stacked_widget)
+
+        # Start on library view if available, otherwise reader
+        if self._library_view is not None:
+            self._stacked_widget.setCurrentIndex(0)  # Library
+        else:
+            self._stacked_widget.setCurrentIndex(0)  # Reader (when no library)
 
         # Setup UI
         self._setup_controller_connections()
+        self._setup_library_connections()  # Library integration
         self._setup_menu_bar()
         self._setup_status_bar()
         self._setup_keyboard_shortcuts()
@@ -95,6 +127,10 @@ class MainWindow(QMainWindow):
 
         # Load and apply saved theme preference
         self._load_theme_preference()
+
+        # Load library if available
+        if self._library_controller is not None:
+            self._library_controller.load_library()
 
         logger.debug("MainWindow initialized successfully")
 
@@ -110,12 +146,20 @@ class MainWindow(QMainWindow):
         # Create File menu
         file_menu = menu_bar.addMenu("&File")
 
-        # Add "Open" action
+        # Add "Open" action (legacy - single file mode)
         open_action = QAction("&Open...", self)
         open_action.setShortcut("Ctrl+O")
         open_action.setStatusTip("Open an EPUB file")
         open_action.triggered.connect(self._handle_open_file)
         file_menu.addAction(open_action)
+
+        # Add "Import" action (library mode - multiple files)
+        if self._library_controller is not None:
+            import_action = QAction("&Import Books...", self)
+            import_action.setShortcut("Ctrl+I")
+            import_action.setStatusTip("Import EPUB files to library")
+            import_action.triggered.connect(self._handle_import_books)
+            file_menu.addAction(import_action)
 
         # Add separator
         file_menu.addSeparator()
@@ -163,6 +207,17 @@ class MainWindow(QMainWindow):
             if not hasattr(self, "_theme_actions"):
                 self._theme_actions: dict[str, QAction] = {}
             self._theme_actions[theme_id] = theme_action
+
+        # Create Library menu (if library enabled)
+        if self._library_controller is not None:
+            library_menu = menu_bar.addMenu("&Library")
+
+            # Add "View Library" action
+            view_library_action = QAction("&View Library", self)
+            view_library_action.setShortcut("Ctrl+L")
+            view_library_action.setStatusTip("Return to library view")
+            view_library_action.triggered.connect(self._show_library)
+            library_menu.addAction(view_library_action)
 
         # Create Help menu
         help_menu = menu_bar.addMenu("&Help")
@@ -692,6 +747,113 @@ class MainWindow(QMainWindow):
                     self._hide_timer.stop()
 
         return False  # Allow event to propagate
+
+    def _setup_library_connections(self) -> None:
+        """Connect library controller and view signals (Phase 1 library)."""
+        if self._library_controller is None or self._library_view is None:
+            logger.debug("Library not enabled, skipping library connections")
+            return
+
+        logger.debug("Setting up library signal connections")
+
+        # Connect library controller to library view
+        self._library_controller.library_loaded.connect(self._library_view.set_books)
+        self._library_controller.filter_changed.connect(self._library_view.set_books)
+        self._library_controller.error_occurred.connect(self._on_error)
+
+        # Connect library view to handlers
+        self._library_view.book_open_requested.connect(self._open_book_from_library)
+        self._library_view.import_requested.connect(self._handle_import_books)
+
+        # Connect import progress signals to toast notifications
+        self._library_controller.import_started.connect(self._on_import_started)
+        self._library_controller.import_completed.connect(self._on_import_completed)
+        self._library_controller.import_error.connect(self._on_import_error)
+
+        logger.debug("Library connections established")
+
+    def _handle_import_books(self) -> None:
+        """Handle File > Import Books menu action (Phase 1 library)."""
+        if self._library_controller is None:
+            logger.warning("Import requested but library not enabled")
+            return
+
+        logger.debug("Opening import dialog")
+
+        # Open file dialog for multiple EPUB files
+        filepaths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Import EPUB Files",
+            "",  # Starting directory (empty = last used)
+            "EPUB Files (*.epub);;All Files (*)",
+        )
+
+        if filepaths:
+            logger.info("User selected %d files to import", len(filepaths))
+            self._library_controller.import_books(filepaths)
+        else:
+            logger.debug("User cancelled import")
+
+    def _show_library(self) -> None:
+        """Show the library view (Ctrl+L) (Phase 1 library)."""
+        if self._library_view is None:
+            logger.warning("Show library requested but library not enabled")
+            return
+
+        logger.debug("Switching to library view")
+        self._stacked_widget.setCurrentIndex(0)  # Library is at index 0
+
+    def _open_book_from_library(self, book_id: int) -> None:
+        """Open a book from the library (Phase 1 library).
+
+        Args:
+            book_id: Database ID of the book to open.
+        """
+        logger.debug("Opening book from library: ID %d", book_id)
+
+        # Open book using reader controller
+        self._controller.open_book_from_library(book_id)
+
+        # Switch to reader view
+        reader_index = 1 if self._library_view is not None else 0
+        self._stacked_widget.setCurrentIndex(reader_index)
+
+    def _on_import_started(self, total_files: int) -> None:
+        """Handle import_started signal (Phase 1 library).
+
+        Args:
+            total_files: Number of files being imported.
+        """
+        logger.debug("Import started: %d files", total_files)
+        message = f"Importing {total_files} book{'s' if total_files > 1 else ''}..."
+        self._show_toast(message, "📥")
+
+    def _on_import_completed(self, succeeded: int, failed: int) -> None:
+        """Handle import_completed signal (Phase 1 library).
+
+        Args:
+            succeeded: Number of successfully imported files.
+            failed: Number of failed imports.
+        """
+        logger.debug("Import completed: %d succeeded, %d failed", succeeded, failed)
+
+        if failed == 0:
+            message = f"✅ Imported {succeeded} book{'s' if succeeded != 1 else ''} successfully"
+            self._show_toast(message, "")
+        else:
+            message = f"⚠️ Imported {succeeded} book{'s' if succeeded != 1 else ''}, {failed} failed"
+            self._show_toast(message, "")
+
+    def _on_import_error(self, filename: str, error_message: str) -> None:
+        """Handle import_error signal (Phase 1 library).
+
+        Args:
+            filename: Name of the file that failed.
+            error_message: Error message.
+        """
+        logger.debug("Import error for %s: %s", filename, error_message)
+        # Individual file errors are logged but not shown as toasts
+        # The final import_completed toast will summarize the failures
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Handle application close event (Phase 2D).

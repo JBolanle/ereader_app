@@ -26,7 +26,8 @@ def main_window(qtbot):
     Returns:
         MainWindow: A window instance managed by qtbot
     """
-    window = MainWindow()
+    # Initialize without library for backward compatibility in tests
+    window = MainWindow(repository=None, library_controller=None)
     qtbot.addWidget(window)
     yield window
     window.close()

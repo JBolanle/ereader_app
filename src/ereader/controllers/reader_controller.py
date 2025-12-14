@@ -55,8 +55,13 @@ class ReaderController(QObject):
     pagination_changed = pyqtSignal(int, int)  # current_page, total_pages (Phase 2A)
     mode_changed = pyqtSignal(object)  # NavigationMode (Phase 2C)
 
-    def __init__(self) -> None:
-        """Initialize the reader controller."""
+    def __init__(self, repository=None) -> None:
+        """Initialize the reader controller.
+
+        Args:
+            repository: Optional LibraryRepository for database integration.
+                       If provided, reading positions will be saved to database.
+        """
         super().__init__()
         logger.debug("Initializing ReaderController")
 
@@ -65,6 +70,10 @@ class ReaderController(QObject):
         self._current_chapter_index: int = 0
         self._current_scroll_percentage: float = 0.0
         self._current_book_path: str | None = None  # Track book path for settings
+
+        # Library integration (Phase 1 library)
+        self._repository = repository  # Optional for backward compatibility
+        self._current_book_id: int | None = None  # Track book ID in library
 
         # Multi-layer caching with shared memory budget
         self._cache_manager = CacheManager(
@@ -163,6 +172,86 @@ class ReaderController(QObject):
 
         except Exception as e:
             error_msg = f"Unexpected error opening book: {e}"
+            logger.exception(error_msg)
+            self.error_occurred.emit("Error", error_msg)
+
+    def open_book_from_library(self, book_id: int) -> None:
+        """Open book from library (library integration).
+
+        Loads book metadata from the database, opens the EPUB file, and restores
+        the saved reading position. This is the primary method for opening books
+        when using the library system.
+
+        Args:
+            book_id: Database ID of the book to open.
+
+        Emits:
+            error_occurred: If book not found, file missing, or other errors.
+        """
+        if self._repository is None:
+            error_msg = "Cannot open from library: no repository configured"
+            logger.error(error_msg)
+            self.error_occurred.emit("Configuration Error", error_msg)
+            return
+
+        logger.info("Opening book from library: ID %d", book_id)
+
+        try:
+            # Get metadata from database
+            from ereader.models.library_database import DatabaseError
+
+            metadata = self._repository.get_book(book_id)
+            if metadata is None:
+                error_msg = "Book not found in library"
+                logger.error("Book ID %d not found in library", book_id)
+                self.error_occurred.emit("Book Not Found", error_msg)
+                return
+
+            # Check if file exists
+            from pathlib import Path
+
+            if not Path(metadata.file_path).exists():
+                error_msg = (
+                    f"The file for '{metadata.title}' could not be found at:\n"
+                    f"{metadata.file_path}\n\n"
+                    f"It may have been moved or deleted."
+                )
+                logger.error("EPUB file not found: %s", metadata.file_path)
+                self.error_occurred.emit("File Not Found", error_msg)
+                return
+
+            # Store book ID for position saving
+            self._current_book_id = book_id
+
+            # Open the EPUB file (this will load saved position from QSettings)
+            self.open_book(metadata.file_path)
+
+            # Override with position from database if available
+            if metadata.current_chapter_index > 0 or metadata.scroll_position > 0:
+                logger.info(
+                    "Overriding with database position: chapter %d, scroll %d",
+                    metadata.current_chapter_index,
+                    metadata.scroll_position,
+                )
+                # Store for restoration after content loads
+                from ereader.models.reading_position import ReadingPosition
+
+                self._pending_position_restore = ReadingPosition(
+                    chapter_index=metadata.current_chapter_index,
+                    page_number=0,
+                    scroll_offset=metadata.scroll_position,
+                    mode=self._current_mode,
+                )
+
+            logger.info("Book opened from library successfully: %s", metadata.title)
+
+        except DatabaseError as e:
+            error_msg = f"Database error: {e}"
+            logger.error(error_msg)
+            self.error_occurred.emit("Database Error", error_msg)
+
+        except Exception as e:
+            error_msg = f"Unexpected error opening book from library: {e}"
             logger.exception(error_msg)
             self.error_occurred.emit("Error", error_msg)
 
@@ -635,14 +724,15 @@ class ReaderController(QObject):
             logger.error("Unexpected error restoring position: %s", e)
 
     def save_current_position(self) -> None:
-        """Save the current reading position to settings (Phase 2D).
+        """Save the current reading position to settings (Phase 2D) and database.
 
         This method should be called when:
         - Changing chapters
         - Closing the application
         - Navigation mode changes
 
-        The position is only saved if a book is currently open.
+        The position is saved to both QSettings (for backward compatibility) and
+        the library database (if repository is configured and book is from library).
         """
         if self._book is None or self._current_book_path is None:
             logger.debug("No book loaded, skipping position save")
@@ -670,9 +760,27 @@ class ReaderController(QObject):
                 mode=self._current_mode,
             )
 
-            # Save to settings
+            # Save to QSettings (backward compatibility)
             self._settings.save_reading_position(self._current_book_path, position)
-            logger.debug("Saved reading position: %s", position)
+            logger.debug("Saved reading position to QSettings: %s", position)
+
+            # Save to database if repository available and book is from library
+            if self._repository is not None and self._current_book_id is not None:
+                # Calculate overall progress (simplified: current chapter / total chapters)
+                total_chapters = self._book.get_chapter_count()
+                progress = ((self._current_chapter_index + 1) / total_chapters) * 100.0
+
+                try:
+                    self._repository.update_reading_position(
+                        self._current_book_id,
+                        self._current_chapter_index,
+                        scroll_offset,
+                        progress,
+                    )
+                    logger.debug("Saved reading position to database for book %d", self._current_book_id)
+                except Exception as db_error:
+                    # Don't fail if database update fails (non-critical)
+                    logger.warning("Failed to save position to database: %s", db_error)
 
         except (ValueError, RuntimeError, AttributeError) as e:
             # ValueError: Invalid position data
