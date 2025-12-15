@@ -22,7 +22,6 @@ from PyQt6.QtWidgets import (
 from ereader.models.book_metadata import BookMetadata
 from ereader.models.library_database import LibraryRepository
 from ereader.models.library_filter import LibraryFilter
-from ereader.utils.smart_collections import SmartCollections
 from ereader.views.book_grid_widget import BookGridWidget
 from ereader.views.collection_sidebar_widget import CollectionSidebarWidget
 from ereader.views.empty_library_widget import EmptyLibraryWidget
