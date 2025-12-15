@@ -94,7 +94,7 @@ class MainWindow(QMainWindow):
         if self._library_controller is not None:
             from ereader.views.library_view import LibraryView
 
-            self._library_view = LibraryView(self)
+            self._library_view = LibraryView(self._repository, self)
             self._stacked_widget.addWidget(self._library_view)  # Index 0
         else:
             self._library_view = None
