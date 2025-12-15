@@ -3,12 +3,12 @@
 Tests the collection CRUD operations and enhanced filtering added in Phase 2.
 """
 
-import pytest
 from datetime import datetime
 
-from ereader.models.library_database import LibraryRepository, DatabaseError
-from ereader.models.collection import Collection
+import pytest
+
 from ereader.models.book_metadata import BookMetadata
+from ereader.models.library_database import DatabaseError, LibraryRepository
 from ereader.models.library_filter import LibraryFilter
 
 
@@ -380,3 +380,62 @@ class TestEnhancedFiltering:
 
         assert len(books) == 1
         assert books[0].title == "Recent Book"
+
+
+class TestUpdateBookSecurity:
+    """Test security features of update_book() method."""
+
+    @pytest.fixture
+    def repo_with_book(self):
+        """Create repository with a single book."""
+        repo = LibraryRepository(":memory:")
+
+        book = BookMetadata(
+            id=0,
+            title="Test Book",
+            author="Test Author",
+            file_path="/path/to/book.epub",
+            cover_path=None,
+            added_date=datetime.now(),
+            last_opened_date=None,
+            reading_progress=0.0,
+            current_chapter_index=0,
+            scroll_position=0,
+            status="not_started",
+            file_size=1000,
+        )
+        repo.add_book(book)
+
+        return repo
+
+    def test_update_book_with_valid_columns(self, repo_with_book):
+        """Should update book with whitelisted column names."""
+        repo = repo_with_book
+
+        # All these columns should be allowed
+        repo.update_book(1, title="New Title")
+        repo.update_book(1, author="New Author")
+        repo.update_book(1, status="reading")
+        repo.update_book(1, reading_progress=50.0)
+
+        book = repo.get_book(1)
+        assert book.title == "New Title"
+        assert book.author == "New Author"
+        assert book.status == "reading"
+        assert book.reading_progress == 50.0
+
+    def test_update_book_with_invalid_column_raises_error(self, repo_with_book):
+        """Should reject invalid column names to prevent SQL injection."""
+        repo = repo_with_book
+
+        # Try to update with an invalid column name
+        with pytest.raises(DatabaseError, match="Invalid column names"):
+            repo.update_book(1, malicious_column="DROP TABLE books")
+
+    def test_update_book_with_mixed_columns_raises_error(self, repo_with_book):
+        """Should reject update if any column is invalid."""
+        repo = repo_with_book
+
+        # Mix of valid and invalid columns should fail
+        with pytest.raises(DatabaseError, match="Invalid column names"):
+            repo.update_book(1, title="New Title", invalid_col="value")

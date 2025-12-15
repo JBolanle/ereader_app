@@ -452,16 +452,37 @@ class LibraryRepository:
             **kwargs: Fields to update (e.g., title="New Title", status="reading").
 
         Raises:
-            DatabaseError: If book doesn't exist or database operation fails.
+            DatabaseError: If book doesn't exist, invalid column name, or database operation fails.
         """
         if not kwargs:
             logger.debug("No fields to update for book %d", book_id)
             return
 
+        # Whitelist of allowed columns to prevent SQL injection
+        allowed_columns = {
+            "title",
+            "author",
+            "file_path",
+            "cover_path",
+            "last_opened_date",
+            "reading_progress",
+            "current_chapter_index",
+            "scroll_position",
+            "status",
+            "file_size",
+        }
+
+        # Validate all column names
+        invalid_columns = set(kwargs.keys()) - allowed_columns
+        if invalid_columns:
+            error_msg = f"Invalid column names: {invalid_columns}"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg)
+
         logger.debug("Updating book %d with fields: %s", book_id, list(kwargs.keys()))
 
         try:
-            # Build UPDATE query dynamically
+            # Build UPDATE query dynamically (column names validated above)
             set_clause = ", ".join([f"{key} = ?" for key in kwargs.keys()])
             values = list(kwargs.values()) + [book_id]
 
