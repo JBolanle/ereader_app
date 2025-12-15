@@ -61,6 +61,10 @@ class LibraryRepository:
             # Open database connection
             self._conn = sqlite3.connect(str(db_path))
             self._conn.row_factory = sqlite3.Row  # Access columns by name
+
+            # Enable foreign key constraints (required for CASCADE)
+            self._conn.execute("PRAGMA foreign_keys = ON")
+
             logger.debug("Database connection established")
 
             # Ensure schema exists and is up-to-date
