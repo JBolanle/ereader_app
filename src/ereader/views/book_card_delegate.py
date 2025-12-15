@@ -5,9 +5,10 @@ with cover placeholders, titles, authors, and progress indicators.
 """
 
 import logging
+from pathlib import Path
 
 from PyQt6.QtCore import QRect, QSize, Qt
-from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from ereader.models.book_metadata import BookMetadata
@@ -76,21 +77,32 @@ class BookCardDelegate(QStyledItemDelegate):
         card_rect = option.rect
         center_x = card_rect.center().x()
 
-        # 1. Draw cover placeholder (centered)
+        # 1. Draw cover (centered)
         cover_x = center_x - self.COVER_WIDTH // 2
         cover_y = card_rect.top() + self.COVER_MARGIN_TOP
         cover_rect = QRect(cover_x, cover_y, self.COVER_WIDTH, self.COVER_HEIGHT)
 
-        # Draw cover background (light gray rectangle)
-        painter.fillRect(cover_rect, QColor("#E0E0E0"))
-        painter.setPen(QPen(QColor("#BDBDBD"), 1))
-        painter.drawRect(cover_rect)
-
-        # Draw book icon (📕 emoji or simple representation)
-        painter.setPen(QColor("#757575"))
-        icon_font = QFont("Arial", 48)
-        painter.setFont(icon_font)
-        painter.drawText(cover_rect, Qt.AlignmentFlag.AlignCenter, "📕")
+        # Try to load actual cover if available
+        if book.cover_path and Path(book.cover_path).exists():
+            # Load cover image
+            pixmap = QPixmap(book.cover_path)
+            if not pixmap.isNull():
+                # Scale to fit cover_rect while preserving aspect ratio
+                scaled = pixmap.scaled(
+                    cover_rect.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                # Center in cover_rect
+                x = cover_rect.x() + (cover_rect.width() - scaled.width()) // 2
+                y = cover_rect.y() + (cover_rect.height() - scaled.height()) // 2
+                painter.drawPixmap(x, y, scaled)
+            else:
+                # Pixmap failed to load, use placeholder
+                self._draw_placeholder_cover(painter, cover_rect)
+        else:
+            # No cover or file missing, use placeholder
+            self._draw_placeholder_cover(painter, cover_rect)
 
         # 2. Draw title (max 2 lines, centered)
         title_y = cover_y + self.COVER_HEIGHT + self.TITLE_MARGIN_TOP
@@ -195,3 +207,23 @@ class BookCardDelegate(QStyledItemDelegate):
             QSize with card dimensions.
         """
         return QSize(self.CARD_WIDTH, self.CARD_HEIGHT)
+
+    def _draw_placeholder_cover(self, painter: QPainter, cover_rect: QRect) -> None:
+        """Draw placeholder cover (gray box with book icon).
+
+        Used when no cover is available or cover loading fails.
+
+        Args:
+            painter: QPainter to draw with.
+            cover_rect: Rectangle to draw placeholder in.
+        """
+        # Draw cover background (light gray rectangle)
+        painter.fillRect(cover_rect, QColor("#E0E0E0"))
+        painter.setPen(QPen(QColor("#BDBDBD"), 1))
+        painter.drawRect(cover_rect)
+
+        # Draw book icon (📕 emoji or simple representation)
+        painter.setPen(QColor("#757575"))
+        icon_font = QFont("Arial", 48)
+        painter.setFont(icon_font)
+        painter.drawText(cover_rect, Qt.AlignmentFlag.AlignCenter, "📕")

@@ -16,6 +16,7 @@ from ereader.models.book_metadata import BookMetadata
 from ereader.models.epub import EPUBBook
 from ereader.models.library_database import DatabaseError, LibraryRepository
 from ereader.models.library_filter import LibraryFilter
+from ereader.utils.cover_extractor import CoverExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -134,13 +135,23 @@ class LibraryController(QObject):
                 # Parse EPUB to get metadata
                 book = EPUBBook(filepath)
 
+                # Extract cover image (Phase 3)
+                cover_data = None
+                try:
+                    cover_data = CoverExtractor.extract_cover(filepath)
+                    if cover_data:
+                        logger.debug("Cover extracted for: %s", filename)
+                except Exception as e:
+                    # Don't fail import if cover extraction fails
+                    logger.warning("Failed to extract cover for %s: %s", filename, e)
+
                 # Create metadata record
                 metadata = BookMetadata(
                     id=0,  # Will be set by database
                     title=book.title,
                     author=", ".join(book.authors) if book.authors else None,
                     file_path=abs_path,
-                    cover_path=None,  # Phase 2: Extract covers
+                    cover_path=None,  # Will be set after saving cover
                     added_date=datetime.now(),
                     last_opened_date=None,
                     reading_progress=0.0,
@@ -152,6 +163,18 @@ class LibraryController(QObject):
 
                 # Add to database
                 book_id = self._repository.add_book(metadata)
+
+                # Save cover to cache and update database (Phase 3)
+                if cover_data:
+                    cover_bytes, extension = cover_data
+                    cover_path = self._save_cover(book_id, cover_bytes, extension)
+                    if cover_path:
+                        try:
+                            self._repository.update_book(book_id, cover_path=cover_path)
+                            logger.debug("Cover saved and database updated for book %d", book_id)
+                        except DatabaseError as e:
+                            logger.warning("Failed to update cover path for book %d: %s", book_id, e)
+
                 logger.info("Successfully imported: %s (ID: %d)", filename, book_id)
                 succeeded += 1
 
@@ -441,3 +464,36 @@ class LibraryController(QObject):
             error_msg = f"Unexpected error updating book status: {e}"
             logger.exception(error_msg)
             self.error_occurred.emit("Update Error", error_msg)
+
+    def _save_cover(self, book_id: int, cover_bytes: bytes, extension: str) -> str | None:
+        """Save cover image to cache directory.
+
+        Creates ~/.ereader/covers/ directory if it doesn't exist and saves
+        the cover image with filename {book_id}.{extension}.
+
+        Args:
+            book_id: Database ID of book.
+            cover_bytes: Cover image data.
+            extension: File extension (jpg, png, etc.).
+
+        Returns:
+            Absolute path to saved cover file, or None if save failed.
+        """
+        try:
+            # Create covers directory
+            covers_dir = Path.home() / ".ereader" / "covers"
+            covers_dir.mkdir(parents=True, exist_ok=True)
+
+            # Save cover with book_id as filename
+            cover_path = covers_dir / f"{book_id}.{extension}"
+            cover_path.write_bytes(cover_bytes)
+
+            logger.info("Saved cover for book %d: %s (%d bytes)", book_id, cover_path, len(cover_bytes))
+            return str(cover_path)
+
+        except OSError as e:
+            logger.error("Failed to save cover for book %d: %s", book_id, e)
+            return None
+        except Exception:
+            logger.exception("Unexpected error saving cover for book %d", book_id)
+            return None
