@@ -20,8 +20,10 @@ class LibraryFilter:
         collection_id: Filter by collection ID (None = all books).
         status: Filter by reading status (None = all statuses).
         author: Filter by author name (None = all authors).
-        sort_by: Sort criterion ("recent", "title", or "author").
+        sort_by: Sort criterion ("recent", "title", "author", "progress", "added_date_desc").
         view_mode: Display mode ("grid" or "list").
+        days_since_opened: Only books opened in last N days (None = all books).
+            Used by "Recent Reads" smart collection.
     """
 
     search_query: str = ""
@@ -30,6 +32,7 @@ class LibraryFilter:
     author: str | None = None
     sort_by: str = "recent"
     view_mode: str = "grid"
+    days_since_opened: int | None = None
 
     def has_active_filters(self) -> bool:
         """Check if any filters are active.

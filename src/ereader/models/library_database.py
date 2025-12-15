@@ -12,6 +12,7 @@ from pathlib import Path
 
 from ereader.exceptions import EReaderError
 from ereader.models.book_metadata import BookMetadata
+from ereader.models.collection import Collection
 from ereader.models.library_filter import LibraryFilter
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class LibraryRepository:
         CURRENT_SCHEMA_VERSION: Current database schema version (for migrations).
     """
 
-    CURRENT_SCHEMA_VERSION = 1
+    CURRENT_SCHEMA_VERSION = 2
 
     def __init__(self, db_path: Path | str) -> None:
         """Initialize repository with database file path.
@@ -139,9 +140,8 @@ class LibraryRepository:
             if from_version < 1:
                 self._create_initial_schema()
 
-            # Future migrations would go here:
-            # if from_version < 2:
-            #     self._migrate_v1_to_v2()
+            if from_version < 2:
+                self._migrate_v1_to_v2()
 
             self._conn.commit()
             logger.info("Migrations completed successfully")
@@ -234,6 +234,86 @@ class LibraryRepository:
         )
 
         logger.debug("Initial schema created successfully")
+
+    def _migrate_v1_to_v2(self) -> None:
+        """Migrate database from v1 to v2 (add collections support).
+
+        Adds the collections and book_collections tables to support
+        user-created collections and collection-based filtering.
+
+        Raises:
+            DatabaseError: If migration fails.
+        """
+        logger.info("Migrating database from v1 to v2 (collections support)")
+
+        cursor = self._conn.cursor()
+
+        # Create collections table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS collections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                color TEXT,
+                sort_order INTEGER DEFAULT 0
+            )
+            """
+        )
+
+        # Create book_collections junction table (many-to-many)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS book_collections (
+                book_id INTEGER NOT NULL,
+                collection_id INTEGER NOT NULL,
+                added_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (book_id, collection_id),
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+        # Create indexes for performance
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_collections_name
+            ON collections(name COLLATE NOCASE)
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_collections_sort_order
+            ON collections(sort_order)
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_book_collections_book
+            ON book_collections(book_id)
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_book_collections_collection
+            ON book_collections(collection_id)
+            """
+        )
+
+        # Update schema version
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO schema_version (version)
+            VALUES (?)
+            """,
+            (2,),
+        )
+
+        logger.info("Migration to v2 complete (collections support added)")
 
     def add_book(self, metadata: BookMetadata) -> int:
         """Add a new book to the library.
@@ -504,13 +584,32 @@ class LibraryRepository:
                 query += " AND author = ?"
                 params.append(filter_obj.author)
 
+            # Collection filter
+            if filter_obj.collection_id:
+                query += """
+                    AND id IN (
+                        SELECT book_id FROM book_collections
+                        WHERE collection_id = ?
+                    )
+                """
+                params.append(filter_obj.collection_id)
+
+            # Days since opened filter (for "Recent Reads" smart collection)
+            if filter_obj.days_since_opened:
+                query += " AND last_opened_date >= datetime('now', '-' || ? || ' days')"
+                params.append(filter_obj.days_since_opened)
+
             # Apply sorting
             if filter_obj.sort_by == "recent":
                 query += " ORDER BY last_opened_date DESC NULLS LAST, added_date DESC"
             elif filter_obj.sort_by == "title":
                 query += " ORDER BY title COLLATE NOCASE"
             elif filter_obj.sort_by == "author":
-                query += " ORDER BY author COLLATE NOCASE"
+                query += " ORDER BY author COLLATE NOCASE, title COLLATE NOCASE"
+            elif filter_obj.sort_by == "progress":
+                query += " ORDER BY reading_progress DESC"
+            elif filter_obj.sort_by == "added_date_desc":
+                query += " ORDER BY added_date DESC"
             else:
                 # Default to recent if unknown sort_by
                 query += " ORDER BY last_opened_date DESC NULLS LAST, added_date DESC"
@@ -604,3 +703,282 @@ class LibraryRepository:
             status=row["status"],
             file_size=row["file_size"],
         )
+
+    # === Collection CRUD Methods ===
+
+    def create_collection(self, name: str, color: str | None = None) -> int:
+        """Create a new user collection.
+
+        Args:
+            name: Collection name (must be unique).
+            color: Optional hex color for UI display (e.g., "#FF5733").
+
+        Returns:
+            Database ID of the newly created collection.
+
+        Raises:
+            DatabaseError: If collection name already exists or database operation fails.
+        """
+        logger.debug("Creating collection: %s", name)
+
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO collections (name, color)
+                VALUES (?, ?)
+                """,
+                (name, color),
+            )
+            self._conn.commit()
+
+            collection_id = cursor.lastrowid
+            logger.info("Created collection '%s' with ID %d", name, collection_id)
+            return collection_id
+
+        except sqlite3.IntegrityError as e:
+            error_msg = f"Collection '{name}' already exists"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+        except sqlite3.Error as e:
+            error_msg = f"Failed to create collection: {e}"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+
+    def get_all_collections(self) -> list[Collection]:
+        """Get all user collections with book counts.
+
+        Returns:
+            List of collections, sorted by sort_order then name.
+
+        Raises:
+            DatabaseError: If database operation fails.
+        """
+        logger.debug("Fetching all collections with book counts")
+
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """
+                SELECT
+                    c.id, c.name, c.created_date, c.color, c.sort_order,
+                    COUNT(bc.book_id) as book_count
+                FROM collections c
+                LEFT JOIN book_collections bc ON c.id = bc.collection_id
+                GROUP BY c.id
+                ORDER BY c.sort_order, c.name COLLATE NOCASE
+                """
+            )
+
+            collections = []
+            for row in cursor.fetchall():
+                collections.append(
+                    Collection(
+                        id=row["id"],
+                        name=row["name"],
+                        created_date=datetime.fromisoformat(row["created_date"]),
+                        color=row["color"],
+                        sort_order=row["sort_order"],
+                        book_count=row["book_count"],
+                    )
+                )
+
+            logger.debug("Found %d collections", len(collections))
+            return collections
+
+        except sqlite3.Error as e:
+            error_msg = f"Failed to get collections: {e}"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+
+    def get_collection(self, collection_id: int) -> Collection | None:
+        """Get a specific collection by ID.
+
+        Args:
+            collection_id: Collection database ID.
+
+        Returns:
+            Collection object if found, None otherwise.
+
+        Raises:
+            DatabaseError: If database operation fails.
+        """
+        logger.debug("Fetching collection %d", collection_id)
+
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """
+                SELECT
+                    c.id, c.name, c.created_date, c.color, c.sort_order,
+                    COUNT(bc.book_id) as book_count
+                FROM collections c
+                LEFT JOIN book_collections bc ON c.id = bc.collection_id
+                WHERE c.id = ?
+                GROUP BY c.id
+                """,
+                (collection_id,),
+            )
+
+            row = cursor.fetchone()
+            if row is None:
+                logger.debug("Collection %d not found", collection_id)
+                return None
+
+            collection = Collection(
+                id=row["id"],
+                name=row["name"],
+                created_date=datetime.fromisoformat(row["created_date"]),
+                color=row["color"],
+                sort_order=row["sort_order"],
+                book_count=row["book_count"],
+            )
+
+            logger.debug("Found collection: %s", collection.name)
+            return collection
+
+        except sqlite3.Error as e:
+            error_msg = f"Failed to get collection: {e}"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+
+    def add_book_to_collection(self, book_id: int, collection_id: int) -> None:
+        """Add a book to a collection.
+
+        Args:
+            book_id: Book database ID.
+            collection_id: Collection database ID.
+
+        Raises:
+            DatabaseError: If book or collection doesn't exist, or link already exists.
+        """
+        logger.debug("Adding book %d to collection %d", book_id, collection_id)
+
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO book_collections (book_id, collection_id)
+                VALUES (?, ?)
+                """,
+                (book_id, collection_id),
+            )
+            self._conn.commit()
+
+            logger.info("Added book %d to collection %d", book_id, collection_id)
+
+        except sqlite3.IntegrityError as e:
+            error_msg = "Book already in collection or invalid book/collection ID"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+        except sqlite3.Error as e:
+            error_msg = f"Failed to add book to collection: {e}"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+
+    def remove_book_from_collection(self, book_id: int, collection_id: int) -> None:
+        """Remove a book from a collection.
+
+        Args:
+            book_id: Book database ID.
+            collection_id: Collection database ID.
+
+        Raises:
+            DatabaseError: If database operation fails.
+        """
+        logger.debug("Removing book %d from collection %d", book_id, collection_id)
+
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM book_collections
+                WHERE book_id = ? AND collection_id = ?
+                """,
+                (book_id, collection_id),
+            )
+            self._conn.commit()
+
+            if cursor.rowcount == 0:
+                logger.warning("Book %d was not in collection %d", book_id, collection_id)
+            else:
+                logger.info("Removed book %d from collection %d", book_id, collection_id)
+
+        except sqlite3.Error as e:
+            error_msg = f"Failed to remove book from collection: {e}"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+
+    def delete_collection(self, collection_id: int) -> None:
+        """Delete a user collection.
+
+        Book-collection links are automatically deleted (ON DELETE CASCADE).
+
+        Args:
+            collection_id: Collection database ID.
+
+        Raises:
+            DatabaseError: If database operation fails.
+        """
+        logger.debug("Deleting collection %d", collection_id)
+
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM collections
+                WHERE id = ?
+                """,
+                (collection_id,),
+            )
+            self._conn.commit()
+
+            if cursor.rowcount == 0:
+                logger.warning("Collection %d not found", collection_id)
+            else:
+                logger.info("Deleted collection %d", collection_id)
+
+        except sqlite3.Error as e:
+            error_msg = f"Failed to delete collection: {e}"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+
+    def rename_collection(self, collection_id: int, new_name: str) -> None:
+        """Rename a collection.
+
+        Args:
+            collection_id: Collection database ID.
+            new_name: New collection name (must be unique).
+
+        Raises:
+            DatabaseError: If collection doesn't exist, name already taken, or database operation fails.
+        """
+        logger.debug("Renaming collection %d to '%s'", collection_id, new_name)
+
+        try:
+            cursor = self._conn.cursor()
+            cursor.execute(
+                """
+                UPDATE collections
+                SET name = ?
+                WHERE id = ?
+                """,
+                (new_name, collection_id),
+            )
+            self._conn.commit()
+
+            if cursor.rowcount == 0:
+                error_msg = f"Collection {collection_id} not found"
+                logger.error(error_msg)
+                raise DatabaseError(error_msg)
+
+            logger.info("Renamed collection %d to '%s'", collection_id, new_name)
+
+        except sqlite3.IntegrityError as e:
+            error_msg = f"Collection name '{new_name}' already exists"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
+        except sqlite3.Error as e:
+            error_msg = f"Failed to rename collection: {e}"
+            logger.error(error_msg)
+            raise DatabaseError(error_msg) from e
