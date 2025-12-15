@@ -52,6 +52,9 @@ class LibraryController(QObject):
     import_error = pyqtSignal(str, str)  # filename, error_message
     filter_changed = pyqtSignal(list)  # filtered list[BookMetadata]
     error_occurred = pyqtSignal(str, str)  # error title, message
+    book_removed = pyqtSignal(int, bool)  # book_id, file_deleted
+    book_remove_failed = pyqtSignal(int, str)  # book_id, error_message
+    book_status_updated = pyqtSignal(int, str)  # book_id, new_status
 
     def __init__(self, repository: LibraryRepository) -> None:
         """Initialize the library controller.
@@ -321,3 +324,120 @@ class LibraryController(QObject):
             Number of books in library.
         """
         return len(self._all_books)
+
+    def get_book_by_id(self, book_id: int) -> BookMetadata | None:
+        """Get book metadata by ID.
+
+        Args:
+            book_id: Database ID of book.
+
+        Returns:
+            BookMetadata if found, None otherwise.
+        """
+        logger.debug("Getting book by ID: %d", book_id)
+
+        try:
+            return self._repository.get_book(book_id)
+        except DatabaseError as e:
+            logger.error("Failed to get book %d: %s", book_id, e)
+            return None
+        except Exception:
+            logger.exception("Unexpected error getting book %d", book_id)
+            return None
+
+    def remove_book(self, book_id: int, delete_file: bool = False) -> None:
+        """Remove book from library, optionally deleting file.
+
+        Args:
+            book_id: Database ID of book to remove.
+            delete_file: If True, also delete the EPUB file from disk.
+
+        Emits:
+            book_removed: On successful removal (book_id, deleted_file).
+            book_remove_failed: On failure (book_id, error_message).
+        """
+        logger.debug("Removing book %d (delete_file=%s)", book_id, delete_file)
+
+        try:
+            # Get book metadata before deletion (for file path)
+            book = self._repository.get_book(book_id)
+            if not book:
+                error_msg = f"Book not found: {book_id}"
+                logger.error(error_msg)
+                self.book_remove_failed.emit(book_id, error_msg)
+                return
+
+            # Delete from database
+            self._repository.delete_book(book_id)
+            logger.info("Book %d deleted from database", book_id)
+
+            # Delete file if requested
+            file_deleted = False
+            if delete_file:
+                try:
+                    file_path = Path(book.file_path)
+                    if file_path.exists():
+                        file_path.unlink()
+                        file_deleted = True
+                        logger.info("Deleted file: %s", file_path)
+                    else:
+                        logger.warning("File not found: %s", file_path)
+                except OSError as e:
+                    # File deletion failed, but database record is already gone
+                    error_msg = f"Failed to delete file: {e}"
+                    logger.error(error_msg)
+                    self.book_remove_failed.emit(book_id, error_msg)
+                    return
+
+            # Emit success signal
+            self.book_removed.emit(book_id, file_deleted)
+            logger.info("Book %d removed successfully", book_id)
+
+        except DatabaseError as e:
+            error_msg = f"Failed to remove book from database: {e}"
+            logger.error(error_msg)
+            self.book_remove_failed.emit(book_id, error_msg)
+
+        except Exception as e:
+            error_msg = f"Unexpected error removing book: {e}"
+            logger.exception(error_msg)
+            self.book_remove_failed.emit(book_id, error_msg)
+
+    def update_book_status(self, book_id: int, new_status: str) -> None:
+        """Update book reading status.
+
+        Args:
+            book_id: Database ID of book.
+            new_status: New status ("not_started", "reading", or "finished").
+
+        Emits:
+            book_status_updated: On success (book_id, status).
+            error_occurred: On failure.
+        """
+        logger.debug("Updating book %d status to: %s", book_id, new_status)
+
+        try:
+            # Validate status
+            valid_statuses = ["not_started", "reading", "finished"]
+            if new_status not in valid_statuses:
+                error_msg = f"Invalid status: {new_status}"
+                logger.error(error_msg)
+                self.error_occurred.emit("Update Error", error_msg)
+                return
+
+            # Update in database
+            self._repository.update_book(book_id, status=new_status)
+
+            # Emit success signal
+            self.book_status_updated.emit(book_id, new_status)
+            logger.info("Book %d status updated to: %s", book_id, new_status)
+
+        except DatabaseError as e:
+            error_msg = f"Failed to update book status: {e}"
+            logger.error(error_msg)
+            self.error_occurred.emit("Update Error", error_msg)
+
+        except Exception as e:
+            error_msg = f"Unexpected error updating book status: {e}"
+            logger.exception(error_msg)
+            self.error_occurred.emit("Update Error", error_msg)

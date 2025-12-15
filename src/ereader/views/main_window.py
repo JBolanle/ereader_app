@@ -16,6 +16,7 @@ from PyQt6.QtGui import (
     QShortcut,
 )
 from PyQt6.QtWidgets import (
+    QDialog,
     QFileDialog,
     QGraphicsOpacityEffect,
     QMainWindow,
@@ -770,6 +771,17 @@ class MainWindow(QMainWindow):
         self._library_controller.import_completed.connect(self._on_import_completed)
         self._library_controller.import_error.connect(self._on_import_error)
 
+        # Connect book grid context menu signals (Phase 3)
+        grid = self._library_view._grid_widget
+        grid.book_details_requested.connect(self._on_book_details_requested)
+        grid.book_status_update_requested.connect(self._on_book_status_update_requested)
+        grid.book_remove_requested.connect(self._on_book_remove_requested)
+
+        # Connect library controller Phase 3 signals
+        self._library_controller.book_removed.connect(self._on_book_removed)
+        self._library_controller.book_remove_failed.connect(self._on_book_remove_failed)
+        self._library_controller.book_status_updated.connect(self._on_book_status_updated)
+
         logger.debug("Library connections established")
 
     def _handle_import_books(self) -> None:
@@ -854,6 +866,119 @@ class MainWindow(QMainWindow):
         logger.debug("Import error for %s: %s", filename, error_message)
         # Individual file errors are logged but not shown as toasts
         # The final import_completed toast will summarize the failures
+
+    def _on_book_details_requested(self, book_id: int) -> None:
+        """Show book details dialog (Phase 3).
+
+        Args:
+            book_id: Database ID of book.
+        """
+        logger.debug("Book details requested for book ID: %d", book_id)
+
+        if self._library_controller is None:
+            logger.warning("Book details requested but library not enabled")
+            return
+
+        book = self._library_controller.get_book_by_id(book_id)
+        if not book:
+            self._show_toast("⚠️ Book not found", "error")
+            return
+
+        from ereader.views.book_details_dialog import BookDetailsDialog
+        dialog = BookDetailsDialog(book, self)
+        dialog.exec()
+
+    def _on_book_status_update_requested(self, book_id: int, new_status: str) -> None:
+        """Update book reading status (Phase 3).
+
+        Args:
+            book_id: Database ID of book.
+            new_status: New status string.
+        """
+        logger.debug("Book status update requested: book_id=%d, status=%s", book_id, new_status)
+
+        if self._library_controller is None:
+            logger.warning("Status update requested but library not enabled")
+            return
+
+        self._library_controller.update_book_status(book_id, new_status)
+
+    def _on_book_remove_requested(self, book_id: int) -> None:
+        """Show remove book confirmation dialog (Phase 3).
+
+        Args:
+            book_id: Database ID of book.
+        """
+        logger.debug("Book removal requested for book ID: %d", book_id)
+
+        if self._library_controller is None:
+            logger.warning("Book removal requested but library not enabled")
+            return
+
+        book = self._library_controller.get_book_by_id(book_id)
+        if not book:
+            self._show_toast("⚠️ Book not found", "error")
+            return
+
+        from ereader.views.remove_book_dialog import RemoveBookDialog, RemoveBookResult
+        dialog = RemoveBookDialog(book, self)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            result = dialog.get_result()
+
+            if result == RemoveBookResult.REMOVE_ONLY:
+                self._library_controller.remove_book(book_id, delete_file=False)
+            elif result == RemoveBookResult.REMOVE_AND_DELETE:
+                self._library_controller.remove_book(book_id, delete_file=True)
+
+    def _on_book_removed(self, book_id: int, file_deleted: bool) -> None:
+        """Handle successful book removal (Phase 3).
+
+        Args:
+            book_id: Database ID of removed book.
+            file_deleted: Whether the file was also deleted.
+        """
+        logger.debug("Book removed successfully: book_id=%d, file_deleted=%s", book_id, file_deleted)
+
+        if file_deleted:
+            self._show_toast("✓ Book and file deleted", "success")
+        else:
+            self._show_toast("✓ Book removed from library", "success")
+
+        # Reload library to refresh grid
+        if self._library_controller:
+            self._library_controller.load_library()
+
+    def _on_book_remove_failed(self, book_id: int, error_message: str) -> None:
+        """Handle book removal failure (Phase 3).
+
+        Args:
+            book_id: Database ID of book.
+            error_message: Error message.
+        """
+        logger.error("Book removal failed: book_id=%d, error=%s", book_id, error_message)
+        self._show_toast(f"⚠️ Failed to remove book: {error_message}", "error")
+
+    def _on_book_status_updated(self, book_id: int, new_status: str) -> None:
+        """Handle successful status update (Phase 3).
+
+        Args:
+            book_id: Database ID of book.
+            new_status: New status.
+        """
+        logger.debug("Book status updated: book_id=%d, status=%s", book_id, new_status)
+
+        status_labels = {
+            "not_started": "Not Started",
+            "reading": "Reading",
+            "finished": "Finished"
+        }
+        label = status_labels.get(new_status, new_status.title())
+        self._show_toast(f"✓ Marked as {label}", "success")
+
+        # Reload library to refresh grid
+        if self._library_controller:
+            self._library_controller.load_library()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Handle application close event (Phase 2D).
