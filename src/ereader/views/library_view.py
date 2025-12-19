@@ -24,7 +24,6 @@ from ereader.models.library_database import LibraryRepository
 from ereader.models.library_filter import LibraryFilter
 from ereader.views.book_grid_widget import BookGridWidget
 from ereader.views.collection_sidebar_widget import CollectionSidebarWidget
-from ereader.views.continue_reading_widget import ContinueReadingWidget
 from ereader.views.empty_library_widget import EmptyLibraryWidget
 
 logger = logging.getLogger(__name__)
@@ -150,12 +149,6 @@ class LibraryView(QWidget):
 
         main_panel_layout.addLayout(header_layout)
 
-        # Continue Reading widget (hidden initially)
-        self._continue_reading_widget = ContinueReadingWidget(self)
-        self._continue_reading_widget.book_activated.connect(self._on_book_activated)
-        self._continue_reading_widget.hide()  # Hidden until books are opened
-        main_panel_layout.addWidget(self._continue_reading_widget)
-
         # Book grid
         self._grid_widget = BookGridWidget(self)
         self._grid_widget.book_selected.connect(self._on_book_selected)
@@ -205,8 +198,6 @@ class LibraryView(QWidget):
         else:
             # Show library with sidebar
             self._stacked_widget.setCurrentIndex(1)
-            # Update Continue Reading widget
-            self._continue_reading_widget.set_books(books)
             # Apply current filter
             self._refresh_grid()
             logger.debug("Showing library with %d books", len(books))
