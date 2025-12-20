@@ -2,12 +2,14 @@
 
 This module provides the LibraryView class that serves as the main container
 for the library interface, including sidebar navigation, search/sort controls,
-and the book grid.
+and the book grid. Also provides DragDropOverlay for visual feedback during
+drag-and-drop import operations.
 """
 
 import logging
 
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDragMoveEvent, QDropEvent
 from PyQt6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -29,12 +31,59 @@ from ereader.views.empty_library_widget import EmptyLibraryWidget
 logger = logging.getLogger(__name__)
 
 
+class DragDropOverlay(QWidget):
+    """Semi-transparent overlay for drag-and-drop visual feedback.
+
+    This widget appears over the library view when files are dragged over
+    the window, providing visual feedback that the drop zone is active.
+    Displays a centered icon and message.
+    """
+
+    def __init__(self, parent: QWidget) -> None:
+        """Initialize the drag-drop overlay.
+
+        Args:
+            parent: Parent widget (LibraryView).
+        """
+        super().__init__(parent)
+
+        # Layout with centered content
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Icon (document with down arrow)
+        icon_label = QLabel("📥", self)
+        icon_label.setStyleSheet("font-size: 64px;")
+        layout.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Message text
+        text_label = QLabel("Drop files to import", self)
+        text_label.setStyleSheet("font-size: 18px; color: white; font-weight: bold;")
+        layout.addWidget(text_label, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Semi-transparent dark background
+        self.setStyleSheet(
+            """
+            DragDropOverlay {
+                background-color: rgba(0, 0, 0, 128);
+                border-radius: 8px;
+            }
+            """
+        )
+
+        # Initially hidden
+        self.hide()
+
+        logger.debug("DragDropOverlay initialized")
+
+
 class LibraryView(QWidget):
     """Main library view container with sidebar and search/sort.
 
     This widget provides the complete library interface:
     - Left sidebar: Collection navigation (smart + user collections)
     - Right panel: Search box, sort dropdown, book grid, status label
+    - Drag-and-drop: Drop EPUB files anywhere to import
 
     The view switches between empty state and full library based on book count.
 
@@ -44,12 +93,15 @@ class LibraryView(QWidget):
         import_requested: Emitted when user wants to import books.
         collection_filter_changed: Emitted when collection selection changes.
             Args: collection_type (str), collection_id (int | str | None)
+        files_dropped: Emitted when files are dropped onto the library view.
+            Args: file_paths (list[str])
     """
 
     # Signals
     book_open_requested = pyqtSignal(int)  # book_id
     import_requested = pyqtSignal()
     collection_filter_changed = pyqtSignal(str, object)  # (type, id_or_name)
+    files_dropped = pyqtSignal(list)  # list[str] of file paths
 
     def __init__(self, repository: LibraryRepository, parent=None) -> None:
         """Initialize the library view.
@@ -175,6 +227,12 @@ class LibraryView(QWidget):
 
         # Start with empty state
         self._stacked_widget.setCurrentIndex(0)
+
+        # Enable drag-and-drop import
+        self.setAcceptDrops(True)
+        self._drag_overlay = DragDropOverlay(self)
+        self._drag_overlay.setGeometry(self.rect())
+        self._drag_overlay.hide()
 
         logger.debug("LibraryView initialized")
 
@@ -363,3 +421,80 @@ class LibraryView(QWidget):
         """Handle import request from empty state."""
         logger.debug("Import requested from empty state")
         self.import_requested.emit()
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        """Handle drag enter event - accept if MIME data contains file URLs.
+
+        Args:
+            event: Drag enter event.
+        """
+        if event.mimeData().hasUrls():
+            # Check if at least one URL is a local file
+            urls = event.mimeData().urls()
+            has_local_file = any(url.isLocalFile() for url in urls)
+
+            if has_local_file:
+                event.acceptProposedAction()
+                self._drag_overlay.show()
+                self._drag_overlay.raise_()
+                logger.debug("Drag entered with %d URLs", len(urls))
+            else:
+                event.ignore()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        """Handle drag move event - continue accepting drag.
+
+        Args:
+            event: Drag move event.
+        """
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
+        """Handle drag leave event - hide overlay.
+
+        Args:
+            event: Drag leave event.
+        """
+        self._drag_overlay.hide()
+        logger.debug("Drag left window")
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        """Handle drop event - extract file paths and emit signal.
+
+        Filters to local EPUB files only (case-insensitive .epub extension).
+
+        Args:
+            event: Drop event.
+        """
+        self._drag_overlay.hide()
+
+        urls = event.mimeData().urls()
+        file_paths = []
+
+        for url in urls:
+            if url.isLocalFile():
+                path = url.toLocalFile()
+                file_paths.append(path)
+
+        if file_paths:
+            logger.debug("Files dropped: %d files", len(file_paths))
+            self.files_dropped.emit(file_paths)
+            event.acceptProposedAction()
+        else:
+            logger.debug("No valid files in drop event")
+            event.ignore()
+
+    def resizeEvent(self, event) -> None:
+        """Handle resize event - update overlay geometry.
+
+        Args:
+            event: Resize event.
+        """
+        super().resizeEvent(event)
+        if hasattr(self, "_drag_overlay"):
+            self._drag_overlay.setGeometry(self.rect())
