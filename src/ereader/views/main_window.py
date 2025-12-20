@@ -765,6 +765,7 @@ class MainWindow(QMainWindow):
         # Connect library view to handlers
         self._library_view.book_open_requested.connect(self._open_book_from_library)
         self._library_view.import_requested.connect(self._handle_import_books)
+        self._library_view.files_dropped.connect(self._handle_files_dropped)
 
         # Connect import progress signals to toast notifications
         self._library_controller.import_started.connect(self._on_import_started)
@@ -805,6 +806,32 @@ class MainWindow(QMainWindow):
             self._library_controller.import_books(filepaths)
         else:
             logger.debug("User cancelled import")
+
+    def _handle_files_dropped(self, file_paths: list[str]) -> None:
+        """Handle drag-and-drop file import.
+
+        Filters to EPUB files only and imports them using the library controller.
+
+        Args:
+            file_paths: List of file paths dropped onto library view.
+        """
+        if self._library_controller is None:
+            logger.warning("Files dropped but library not enabled")
+            return
+
+        # Filter to .epub files (case-insensitive)
+        epub_files = [
+            path for path in file_paths if path.lower().endswith(".epub")
+        ]
+
+        if epub_files:
+            logger.info("Drag-drop import: %d EPUB files", len(epub_files))
+            self._library_controller.import_books(epub_files)
+        else:
+            logger.debug("No EPUB files in dropped files")
+            # Show toast for non-EPUB files
+            if file_paths:
+                self._show_toast("⚠️ Only EPUB files are supported", "")
 
     def _show_library(self) -> None:
         """Show the library view (Ctrl+L) (Phase 1 library)."""
