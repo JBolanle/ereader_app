@@ -92,4 +92,5 @@ warn_unused_ignores = true
 dev = [
     "pytest-cov>=7.0.0",
     "pytest-qt>=4.5.0",
+    "ruff>=0.14.7",
 ]

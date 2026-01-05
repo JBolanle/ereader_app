@@ -27,6 +27,49 @@ def mock_epub_book():
     return mock_book
 
 
+def wait_for_controller_threads(controller, timeout_ms=1000):
+    """Wait for any running async loader threads in the controller to finish.
+
+    Args:
+        controller: The ReaderController instance.
+        timeout_ms: Maximum time to wait in milliseconds.
+    """
+    if controller._current_loader is not None:
+        controller._current_loader.wait(timeout_ms)
+
+
+# Track all ReaderController instances created during tests
+_test_controllers = []
+
+
+@pytest.fixture(autouse=True)
+def cleanup_controller_threads():
+    """Automatically cleanup any controller threads after each test.
+
+    This fixture runs after every test to ensure all QThread objects
+    are properly waited on before destruction, preventing Qt threading errors.
+    """
+    global _test_controllers
+    _test_controllers.clear()
+    yield
+    # After test completes, wait for all controller threads
+    for controller in _test_controllers:
+        wait_for_controller_threads(controller)
+    _test_controllers.clear()
+
+
+# Monkey patch ReaderController.__init__ to track instances
+_original_init = ReaderController.__init__
+
+
+def _tracked_init(self, *args, **kwargs):
+    _original_init(self, *args, **kwargs)
+    _test_controllers.append(self)
+
+
+ReaderController.__init__ = _tracked_init
+
+
 class TestReaderControllerInit:
     """Test ReaderController initialization."""
 
@@ -643,6 +686,9 @@ class TestReaderControllerCaching:
         with qtbot.waitSignal(controller.content_ready, timeout=1000):
             controller._load_chapter(12)
         assert mock_book.get_chapter_content.call_count == 0  # Rendered cache hit
+
+        # Wait for final thread to finish before test cleanup
+        wait_for_controller_threads(controller)
 
     @patch('ereader.utils.async_loader.resolve_images_in_html')
     def test_backward_navigation_caching(self, mock_resolve_images, qtbot):

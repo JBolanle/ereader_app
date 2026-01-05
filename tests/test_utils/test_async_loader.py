@@ -80,6 +80,9 @@ class TestAsyncChapterLoaderCacheHit:
         # Verify book was not accessed (cache hit)
         mock_book.get_chapter_content.assert_not_called()
 
+        # Wait for thread to finish before cleanup
+        loader.wait(1000)
+
     def test_raw_cache_hit(self, mock_book, cache_manager, qtbot):
         """Test that raw cached content is re-rendered."""
         # Pre-populate only raw cache
@@ -107,6 +110,9 @@ class TestAsyncChapterLoaderCacheHit:
             # Verify image resolution was called
             mock_resolve.assert_called_once_with(raw_html, mock_book, chapter_href="chapter1.xhtml")
 
+            # Wait for thread to finish before cleanup
+            loader.wait(1000)
+
 
 class TestAsyncChapterLoaderCacheMiss:
     """Tests for AsyncChapterLoader with no cached content."""
@@ -133,6 +139,9 @@ class TestAsyncChapterLoaderCacheMiss:
             # Verify image resolution was called
             mock_resolve.assert_called_once()
 
+            # Wait for thread to finish before cleanup
+            loader.wait(1000)
+
     def test_cache_population(self, mock_book, cache_manager, qtbot):
         """Test that both caches are populated after load."""
         # Mock image resolution
@@ -150,6 +159,9 @@ class TestAsyncChapterLoaderCacheMiss:
             cache_key = f"{mock_book.filepath}:0"
             assert cache_manager.raw_chapters.get(cache_key) is not None
             assert cache_manager.rendered_chapters.get(cache_key) == "<html><body>Resolved content</body></html>"
+
+            # Wait for thread to finish before cleanup
+            loader.wait(1000)
 
 
 class TestAsyncChapterLoaderCancellation:
@@ -211,6 +223,9 @@ class TestAsyncChapterLoaderErrorHandling:
         assert "Unexpected error loading chapter 1" in message
         assert "Failed to read EPUB" in message
 
+        # Wait for thread to finish before cleanup
+        loader.wait(1000)
+
     def test_image_resolution_error(self, mock_book, cache_manager, qtbot):
         """Test that image resolution errors are handled."""
         # Mock image resolution to raise an exception
@@ -229,6 +244,9 @@ class TestAsyncChapterLoaderErrorHandling:
             assert title == "Error"  # ValueError is unexpected, gets "Error" title
             assert "Invalid image data" in message
 
+            # Wait for thread to finish before cleanup
+            loader.wait(1000)
+
     def test_invalid_chapter_index(self, mock_book, cache_manager, qtbot):
         """Test handling of invalid chapter index."""
         # Make get_chapter_href raise an exception for invalid index
@@ -245,6 +263,9 @@ class TestAsyncChapterLoaderErrorHandling:
         title, message = blocker.args
         assert title == "Chapter Not Found"  # IndexError gets specific title
         assert "Chapter 1000 does not exist" in message
+
+        # Wait for thread to finish before cleanup
+        loader.wait(1000)
 
 
 class TestAsyncChapterLoaderSignals:
@@ -267,6 +288,9 @@ class TestAsyncChapterLoaderSignals:
         assert len(blocker.args) == 1
         assert blocker.args[0] == test_html
 
+        # Wait for thread to finish before cleanup
+        loader.wait(1000)
+
     def test_error_signal_args(self, mock_book, cache_manager, qtbot):
         """Test that error_occurred signal has correct arguments."""
         mock_book.get_chapter_content.side_effect = RuntimeError("Test error")
@@ -282,6 +306,9 @@ class TestAsyncChapterLoaderSignals:
         assert isinstance(blocker.args[0], str)  # title
         assert isinstance(blocker.args[1], str)  # message
 
+        # Wait for thread to finish before cleanup
+        loader.wait(1000)
+
     def test_finished_signal(self, mock_book, cache_manager, qtbot):
         """Test that finished signal is emitted when thread completes."""
         # Pre-populate cache for fast completion
@@ -296,6 +323,9 @@ class TestAsyncChapterLoaderSignals:
 
         # Thread should not be running
         assert not loader.isRunning()
+
+        # Ensure thread is fully cleaned up
+        loader.wait(1000)
 
 
 class TestAsyncChapterLoaderThreadSafety:
@@ -326,11 +356,13 @@ class TestAsyncChapterLoaderThreadSafety:
             loader1 = AsyncChapterLoader(mock_book, cache_manager, chapter_index=0)
             with qtbot.waitSignal(loader1.content_ready, timeout=1000):
                 loader1.start()
+            loader1.wait(1000)
 
             # Load chapter 1
             loader2 = AsyncChapterLoader(mock_book, cache_manager, chapter_index=1)
             with qtbot.waitSignal(loader2.content_ready, timeout=1000):
                 loader2.start()
+            loader2.wait(1000)
 
             # Verify both chapters were loaded
             assert cache_manager.rendered_chapters.get(f"{mock_book.filepath}:0") is not None
